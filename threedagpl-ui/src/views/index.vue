@@ -1,40 +1,82 @@
 <template>
   <div style="padding:24px">
 
-    <div class="controls">
-      <input type="file" @change="onFileChange" accept=".obj" />
+    <!-- 标题区域 -->
+    <el-card shadow="hover" style="margin-bottom:5px">
+      <h2 style="text-align: center; margin: 0;">三维模型轻量化处理与图形学算法学习平台</h2>
+    </el-card>
 
-      <span v-if="vertexCount">
-        原始顶点: {{ originalCount }}
-      </span>
+    <!-- 控制面板 -->
+    <el-card shadow="hover" style="margin-bottom:20px">
 
-      <input v-model.number="targetCount" type="number" placeholder="目标顶点数" style="width:120px" />
+      <el-row :gutter="20" align="middle" style="margin-left: 120px;">
 
-      <input v-model.number="simplifyRate" type="number"
-        placeholder="简化率 (0-1)"
-        style="width:120px; margin-left: 10px;"
-        min="0" max="1" step="0.01" />
+        <!-- 上传 -->
+        <el-col :span="3">
+          <el-upload
+            :auto-upload="false"
+            :show-file-list="false"
+            accept=".obj"
+            :on-change="onFileChange"
+          >
+            <el-button type="primary">上传OBJ模型</el-button>
+          </el-upload>
+        </el-col>
 
-      <label style="margin-left: 20px; margin-right: 10px;">
-        <input v-model="useOptim" type="checkbox" />
-        启用价感知
-      </label>
+        <!-- 原始顶点 -->
+        <el-col :span="4" v-if="vertexCount" style="display: flex; align-items: center; height: 40px;">
+          <el-tag type="success">
+            原始顶点: {{ originalCount }}
+          </el-tag>
+        </el-col>
 
-      <label style="margin-right: 10px;">
-        <input v-model="useIsotropic" type="checkbox" />
-        启用各向同性
-      </label>
+        <!-- 目标顶点 -->
+        <el-col :span="4">
+          <el-input-number
+            v-model="targetCount"
+            :min="0"
+            placeholder="目标顶点"
+            style="width:100%"
+          />
+        </el-col>
 
-      <button @click="submitSimplify" :disabled="simplifying || !filePath">
-        {{ simplifying ? '提交中...' : '提交简化' }}
-      </button>
+        <!-- 简化率 -->
+        <el-col :span="4">
+          <el-input-number
+            v-model="simplifyRate"
+            :min="0"
+            :max="1"
+            :step="0.01"
+            style="width:100%"
+          />
+        </el-col>
 
-      <span v-if="submitMessage" style="margin-left: 20px; color: #44aaee;">
-        {{ submitMessage }}
-      </span>
-    </div>
+        <!-- 选项 -->
+        <el-col :span="4" style="display: flex; align-items: center; height: 40px;">
+          <el-checkbox v-model="useOptim">价感知</el-checkbox>
+          <el-checkbox v-model="useIsotropic">各向同性</el-checkbox>
+        </el-col>
 
-    <div ref="threeContainer" class="canvas-container"></div>
+        <!-- 提交按钮 -->
+        <el-col :span="4">
+          <el-button
+            type="success"
+            :loading="simplifying"
+            @click="submitSimplify"
+            style="width:80%"
+          >
+            {{ simplifying ? '提交中...' : '提交简化任务' }}
+          </el-button>
+        </el-col>
+
+      </el-row>
+
+    </el-card>
+
+    <!-- Three.js 渲染区域 -->
+    <el-card shadow="never">
+      <div ref="threeContainer" class="canvas-container"></div>
+    </el-card>
 
   </div>
 </template>
@@ -64,8 +106,7 @@ export default {
       useOptim: false,
       useIsotropic: false,
 
-      simplifying: false,
-      submitMessage: ''
+      simplifying: false
     }
   },
 
@@ -75,20 +116,19 @@ export default {
     submitSimplify() {
 
       if (!this.filePath) {
-        this.submitMessage = '请先上传模型文件'
+        this.$message.warning('请先上传模型文件')
         return
       }
 
       if (!this.targetCount && this.simplifyRate === 0.5) {
-        this.submitMessage = '请输入目标顶点数或调整简化率'
+        this.$message.warning('请输入目标顶点数或调整简化率')
         return
       }
 
       this.simplifying = true
-      this.submitMessage = ''
 
       const payload = {
-        input: this.filePath,
+        input: this.filePath
       }
 
       if (this.targetCount) payload.v = this.targetCount
@@ -96,47 +136,39 @@ export default {
       if (this.useOptim) payload.optim = true
       if (this.useIsotropic) payload.isotropic = true
 
-      this.submitRequest(payload)
-    },
-
-    // ================= 请求后端 =================
-    submitRequest(data) {
-
-      request.post('/system/tasks/model', data).then(resp => {
+      request.post('/system/tasks/model', payload).then(resp => {
 
         this.simplifying = false
 
         if (resp.code === 200) {
 
-          this.submitMessage = '✓ 提交成功，任务ID: ' + resp.data?.taskNo
+          this.$message.success('任务提交成功')
 
-          // 🔥 关键：加载返回模型
           if (resp.data?.outputModelPath) {
             this.loadOutputModel(resp.data.outputModelPath, resp.data)
           }
 
         } else {
-          this.submitMessage = '✗ 提交失败：' + (resp.msg || '未知错误')
+          this.$message.error(resp.msg || '提交失败')
         }
 
-      }).catch(err => {
+      }).catch(() => {
         this.simplifying = false
-        this.submitMessage = '✗ 请求出错：' + (err.response?.data?.msg || err.message)
+        this.$message.error('请求失败')
       })
     },
 
-    // ================= 加载简化模型（核心修改） =================
+    // ================= 加载简化模型 =================
     loadOutputModel(modelPath, taskData) {
 
-      // ✅ 1. 提取文件名
+      // 提取文件名
       const fileName = modelPath.split('/').pop()
 
-      // ✅ 2. 拼接 http-server 地址
+      // 拼接 http-server 地址
       const fullPath = `http://localhost:82/${fileName}`
 
       console.log('加载模型URL：', fullPath)
 
-      // ✅ 3. 直接用 THREE 加载（更推荐）
       const loader = new OBJLoader()
 
       loader.load(
@@ -144,7 +176,6 @@ export default {
 
         (obj) => {
 
-          // 清除旧模型
           if (this.objMesh) {
             this.scene.remove(this.objMesh)
           }
@@ -162,18 +193,16 @@ export default {
           this.objMesh = obj
           this.scene.add(obj)
 
-          const processedCount = taskData.processedVertexCount
-
-          this.submitMessage =
-            `✓ 已加载简化模型 | 原顶点: ${this.originalCount} → 简化后: ${processedCount}`
+          this.$message.success(
+            `加载完成：${this.originalCount} → ${taskData.processedVertexCount}`
+          )
 
         },
 
         undefined,
 
-        (err) => {
-          this.submitMessage = '✗ 加载模型失败'
-          console.error(err)
+        () => {
+          this.$message.error('模型加载失败')
         }
       )
     },
@@ -216,13 +245,13 @@ export default {
       loop()
     },
 
-    // ================= 加载本地 OBJ =================
-    onFileChange(e) {
+    // ================= 上传并加载本地OBJ =================
+    onFileChange(file) {
 
-      const file = e.target.files[0]
-      if (!file) return
+      const rawFile = file.raw
+      if (!rawFile) return
 
-      this.filePath = file.name
+      this.filePath = rawFile.name
 
       const reader = new FileReader()
 
@@ -236,7 +265,9 @@ export default {
 
         obj.traverse(c => {
           if (c.isMesh) {
-            c.material = new THREE.MeshStandardMaterial({ color: 0x44aaee })
+            c.material = new THREE.MeshStandardMaterial({
+              color: 0x44aaee
+            })
 
             this.originalCount = c.geometry.attributes.position.count
             this.vertexCount = this.originalCount
@@ -246,10 +277,10 @@ export default {
         this.objMesh = obj
         this.scene.add(obj)
 
-        this.submitMessage = `已加载 ${this.originalCount} 个顶点`
+        this.$message.success(`已加载 ${this.originalCount} 个顶点`)
       }
 
-      reader.readAsText(file)
+      reader.readAsText(rawFile)
     }
 
   },
@@ -262,72 +293,10 @@ export default {
 </script>
 
 <style scoped>
-.controls {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 15px;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.controls input[type="file"] {
-  padding: 6px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-}
-
-.controls input[type="number"] {
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-}
-
-.controls input[type="checkbox"] {
-  margin-right: 5px;
-}
-
-.controls label {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  font-size: 14px;
-}
-
 .canvas-container {
   width: 100%;
-  height: calc(100vh - 160px);
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  height: calc(100vh - 220px);
+  border-radius: 6px;
   background: #000;
-}
-
-button {
-  padding: 8px 16px;
-  background: #44aaee;
-  color: white;
-  border: none;
-  cursor: pointer;
-  border-radius: 3px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-button:hover:not(:disabled) {
-  background: #2898dd;
-  box-shadow: 0 2px 8px rgba(68, 170, 238, 0.3);
-}
-
-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-span[style*="color"] {
-  font-size: 14px;
-  font-weight: 500;
 }
 </style>
