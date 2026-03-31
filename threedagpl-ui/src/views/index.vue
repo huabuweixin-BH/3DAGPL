@@ -9,7 +9,7 @@
     <!-- 控制面板 -->
     <el-card shadow="hover" style="margin-bottom:20px">
 
-      <el-row :gutter="20" align="middle" style="margin-left: 120px;">
+      <el-row :gutter="20" align="middle" style="margin-left: 60px;">
 
         <!-- 上传 -->
         <el-col :span="3">
@@ -24,30 +24,32 @@
         </el-col>
 
         <!-- 原始顶点 -->
-        <el-col :span="4" v-if="vertexCount" style="display: flex; align-items: center; height: 40px;">
+        <el-col :span="3" v-if="vertexCount" style="display: flex; align-items: center; height: 40px;">
           <el-tag type="success">
             原始顶点: {{ originalCount }}
           </el-tag>
         </el-col>
 
         <!-- 目标顶点 -->
-        <el-col :span="4">
+        <el-col :span="5" style="display: flex; align-items: center; height: 40px;">
+          <span style="margin-right: 8px; font-size: 14px; color: #606266;">目标顶点:</span>
           <el-input-number
             v-model="targetCount"
             :min="0"
             placeholder="目标顶点"
-            style="width:100%"
+            style="flex: 1;"
           />
         </el-col>
 
         <!-- 简化率 -->
-        <el-col :span="4">
+        <el-col :span="5" style="display: flex; align-items: center; height: 40px;">
+          <span style="margin-right: 8px; font-size: 14px; color: #606266;">简化率:</span>
           <el-input-number
             v-model="simplifyRate"
             :min="0"
             :max="1"
             :step="0.01"
-            style="width:100%"
+            style="flex: 1;"
           />
         </el-col>
 
@@ -75,7 +77,16 @@
 
     <!-- Three.js 渲染区域 -->
     <el-card shadow="never">
-      <div ref="threeContainer" class="canvas-container"></div>
+      <div class="three-scenes">
+        <div class="scene-container">
+          <h3>原始模型</h3>
+          <div ref="leftContainer" class="canvas-container"></div>
+        </div>
+        <div class="scene-container">
+          <h3>处理后模型</h3>
+          <div ref="rightContainer" class="canvas-container"></div>
+        </div>
+      </div>
     </el-card>
 
   </div>
@@ -91,11 +102,18 @@ export default {
 
   data() {
     return {
-      scene: null,
-      camera: null,
-      renderer: null,
+      // 左边场景（原始模型）
+      sceneLeft: null,
+      cameraLeft: null,
+      rendererLeft: null,
+      objMeshLeft: null,
 
-      objMesh: null,
+      // 右边场景（处理后模型）
+      sceneRight: null,
+      cameraRight: null,
+      rendererRight: null,
+      objMeshRight: null,
+
       filePath: null,
 
       originalCount: 0,
@@ -128,7 +146,8 @@ export default {
       this.simplifying = true
 
       const payload = {
-        input: this.filePath
+        input: this.filePath,
+        originalVertices: this.originalCount
       }
 
       if (this.targetCount) payload.v = this.targetCount
@@ -190,11 +209,15 @@ export default {
             }
           })
 
-          this.objMesh = obj
-          this.scene.add(obj)
+          if (this.objMeshRight) {
+            this.sceneRight.remove(this.objMeshRight)
+          }
+
+          this.objMeshRight = obj
+          this.sceneRight.add(obj)
 
           this.$message.success(
-            `加载完成：${this.originalCount} → ${taskData.processedVertexCount}`
+            `加载完成：${taskData.originalVertices || this.originalCount} → ${taskData.processedVertexCount}`
           )
 
         },
@@ -207,42 +230,51 @@ export default {
       )
     },
 
-    // ================= 初始化 THREE =================
-    initThree() {
+    // ================= 初始化 THREE 场景 =================
+    initScenes() {
+      this.initScene('left')
+      this.initScene('right')
+    },
 
-      const container = this.$refs.threeContainer
+    initScene(side) {
+      const container = this.$refs[side + 'Container']
 
-      this.scene = new THREE.Scene()
-      this.scene.background = new THREE.Color(0x1a1a1a)
+      const scene = new THREE.Scene()
+      scene.background = new THREE.Color(0x1a1a1a)
 
-      this.camera = new THREE.PerspectiveCamera(
+      const camera = new THREE.PerspectiveCamera(
         45,
         container.clientWidth / container.clientHeight,
         0.1,
         1000
       )
 
-      this.camera.position.set(2, 2, 5)
+      camera.position.set(2, 2, 5)
 
-      this.renderer = new THREE.WebGLRenderer({ antialias: true })
-      this.renderer.setSize(container.clientWidth, container.clientHeight)
+      const renderer = new THREE.WebGLRenderer({ antialias: true })
+      renderer.setSize(container.clientWidth, container.clientHeight)
 
-      container.appendChild(this.renderer.domElement)
+      container.appendChild(renderer.domElement)
 
       const light = new THREE.DirectionalLight(0xffffff, 1)
       light.position.set(5, 5, 5)
 
-      this.scene.add(light)
-      this.scene.add(new THREE.AmbientLight(0xffffff, 0.6))
+      scene.add(light)
+      scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
-      new OrbitControls(this.camera, this.renderer.domElement)
+      new OrbitControls(camera, renderer.domElement)
 
       const loop = () => {
         requestAnimationFrame(loop)
-        this.renderer.render(this.scene, this.camera)
+        renderer.render(scene, camera)
       }
 
       loop()
+
+      // 动态设置属性
+      this['scene' + side.charAt(0).toUpperCase() + side.slice(1)] = scene
+      this['camera' + side.charAt(0).toUpperCase() + side.slice(1)] = camera
+      this['renderer' + side.charAt(0).toUpperCase() + side.slice(1)] = renderer
     },
 
     // ================= 上传并加载本地OBJ =================
@@ -274,8 +306,12 @@ export default {
           }
         })
 
-        this.objMesh = obj
-        this.scene.add(obj)
+        if (this.objMeshLeft) {
+          this.sceneLeft.remove(this.objMeshLeft)
+        }
+
+        this.objMeshLeft = obj
+        this.sceneLeft.add(obj)
 
         this.$message.success(`已加载 ${this.originalCount} 个顶点`)
       }
@@ -286,16 +322,31 @@ export default {
   },
 
   mounted() {
-    this.initThree()
+    this.initScenes()
   }
 
 }
 </script>
 
 <style scoped>
+.three-scenes {
+  display: flex;
+  gap: 20px;
+}
+
+.scene-container {
+  flex: 1;
+}
+
+.scene-container h3 {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #409EFF;
+}
+
 .canvas-container {
   width: 100%;
-  height: calc(100vh - 220px);
+  height: calc(100vh - 280px);
   border-radius: 6px;
   background: #000;
 }

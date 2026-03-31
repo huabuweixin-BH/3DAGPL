@@ -145,7 +145,7 @@ public class ModelTasksController extends BaseController
         modelTasks.setOutputModelPath(outputFilePath); // 保存 Flask 返回的输出路径
         modelTasks.setAlgorithm("QEM"); // 默认使用 QEM 算法
         modelTasks.setStatus(1L); // 1-成功
-        
+        modelTasks.setOriginalVertexCount(vertexCount.longValue());
         // 设置目标顶点数和处理后顶点数
         if (request.getV() != null) {
             modelTasks.setTargetVertexCount(request.getV().longValue());
