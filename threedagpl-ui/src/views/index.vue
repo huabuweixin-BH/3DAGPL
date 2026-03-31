@@ -10,7 +10,9 @@
 
       <input v-model.number="targetCount" type="number" placeholder="目标顶点数" style="width:120px" />
 
-      <input v-model.number="simplifyRate" type="number" placeholder="简化率 (0-1)" style="width:120px; margin-left: 10px;"
+      <input v-model.number="simplifyRate" type="number"
+        placeholder="简化率 (0-1)"
+        style="width:120px; margin-left: 10px;"
         min="0" max="1" step="0.01" />
 
       <label style="margin-left: 20px; margin-right: 10px;">
@@ -38,7 +40,6 @@
 </template>
 
 <script>
-
 import * as THREE from "three"
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
@@ -48,7 +49,6 @@ export default {
 
   data() {
     return {
-
       scene: null,
       camera: null,
       renderer: null,
@@ -71,6 +71,7 @@ export default {
 
   methods: {
 
+    // ================= 提交任务 =================
     submitSimplify() {
 
       if (!this.filePath) {
@@ -90,69 +91,58 @@ export default {
         input: this.filePath,
       }
 
-      if (this.targetCount) {
-        payload.v = this.targetCount
-      }
-
-      if (this.simplifyRate !== 0.5) {
-        payload.p = this.simplifyRate
-      }
-
-      if (this.useOptim) {
-        payload.optim = true
-      }
-
-      if (this.useIsotropic) {
-        payload.isotropic = true
-      }
-
-      console.log('提交数据：', payload)
+      if (this.targetCount) payload.v = this.targetCount
+      if (this.simplifyRate !== 0.5) payload.p = this.simplifyRate
+      if (this.useOptim) payload.optim = true
+      if (this.useIsotropic) payload.isotropic = true
 
       this.submitRequest(payload)
-
     },
 
+    // ================= 请求后端 =================
     submitRequest(data) {
 
-      // 使用项目的axios实例发送请求
       request.post('/system/tasks/model', data).then(resp => {
 
         this.simplifying = false
 
-        // AjaxResult 格式：{code: 200, msg: "success", data: ...}
         if (resp.code === 200) {
-          this.submitMessage = '✓ 提交成功，任务ID: ' + resp.data?.taskNo
-          console.log('任务创建成功：', resp.data)
 
-          // 如果有输出模型路径，加载简化后的模型
+          this.submitMessage = '✓ 提交成功，任务ID: ' + resp.data?.taskNo
+
+          // 🔥 关键：加载返回模型
           if (resp.data?.outputModelPath) {
             this.loadOutputModel(resp.data.outputModelPath, resp.data)
           }
+
         } else {
           this.submitMessage = '✗ 提交失败：' + (resp.msg || '未知错误')
-          console.warn('提交失败响应：', resp)
         }
 
       }).catch(err => {
-
         this.simplifying = false
         this.submitMessage = '✗ 请求出错：' + (err.response?.data?.msg || err.message)
-        console.error('请求错误：', err)
-
       })
-
     },
 
+    // ================= 加载简化模型（核心修改） =================
     loadOutputModel(modelPath, taskData) {
 
-      // 使用项目的axios实例下载模型文件
-      request.get(modelPath, { responseType: 'blob' }).then(blob => {
+      // ✅ 1. 提取文件名
+      const fileName = modelPath.split('/').pop()
 
-        const reader = new FileReader()
+      // ✅ 2. 拼接 http-server 地址
+      const fullPath = `http://localhost:82/${fileName}`
 
-        reader.onload = (ev) => {
+      console.log('加载模型URL：', fullPath)
 
-          const obj = new OBJLoader().parse(ev.target.result)
+      // ✅ 3. 直接用 THREE 加载（更推荐）
+      const loader = new OBJLoader()
+
+      loader.load(
+        fullPath,
+
+        (obj) => {
 
           // 清除旧模型
           if (this.objMesh) {
@@ -163,7 +153,6 @@ export default {
             if (c.isMesh) {
               c.material = new THREE.MeshStandardMaterial({
                 color: 0x44aaee,
-                wireframe: false,
                 roughness: 0.7,
                 metalness: 0.2
               })
@@ -173,25 +162,23 @@ export default {
           this.objMesh = obj
           this.scene.add(obj)
 
-          // 更新顶点信息
           const processedCount = taskData.processedVertexCount
-          const targetCount = taskData.targetVertexCount
 
-          this.submitMessage = `✓ 已加载简化后的模型 | 原顶点: ${this.originalCount} → 简化后: ${processedCount}`
+          this.submitMessage =
+            `✓ 已加载简化模型 | 原顶点: ${this.originalCount} → 简化后: ${processedCount}`
 
+        },
+
+        undefined,
+
+        (err) => {
+          this.submitMessage = '✗ 加载模型失败'
+          console.error(err)
         }
-
-        reader.readAsText(blob)
-
-      }).catch(err => {
-
-        this.submitMessage = '✗ 加载模型失败：' + (err.message || '未知错误')
-        console.error('加载模型错误：', err)
-
-      })
-
+      )
     },
 
+    // ================= 初始化 THREE =================
     initThree() {
 
       const container = this.$refs.threeContainer
@@ -209,17 +196,14 @@ export default {
       this.camera.position.set(2, 2, 5)
 
       this.renderer = new THREE.WebGLRenderer({ antialias: true })
-
       this.renderer.setSize(container.clientWidth, container.clientHeight)
 
       container.appendChild(this.renderer.domElement)
 
       const light = new THREE.DirectionalLight(0xffffff, 1)
-
       light.position.set(5, 5, 5)
 
       this.scene.add(light)
-
       this.scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
       new OrbitControls(this.camera, this.renderer.domElement)
@@ -230,16 +214,14 @@ export default {
       }
 
       loop()
-
     },
 
+    // ================= 加载本地 OBJ =================
     onFileChange(e) {
 
       const file = e.target.files[0]
-
       if (!file) return
 
-      // 保存文件路径
       this.filePath = file.name
 
       const reader = new FileReader()
@@ -248,19 +230,14 @@ export default {
 
         const obj = new OBJLoader().parse(ev.target.result)
 
-        // 清除旧模型
         if (this.objMesh) {
           this.scene.remove(this.objMesh)
         }
 
         obj.traverse(c => {
           if (c.isMesh) {
-            c.material = new THREE.MeshStandardMaterial({
-              color: 0x44aaee,
-              wireframe: false,
-              roughness: 0.7,
-              metalness: 0.2
-            })
+            c.material = new THREE.MeshStandardMaterial({ color: 0x44aaee })
+
             this.originalCount = c.geometry.attributes.position.count
             this.vertexCount = this.originalCount
           }
@@ -270,11 +247,9 @@ export default {
         this.scene.add(obj)
 
         this.submitMessage = `已加载 ${this.originalCount} 个顶点`
-
       }
 
       reader.readAsText(file)
-
     }
 
   },
