@@ -1,641 +1,358 @@
 <template>
-<div style="padding:24px">
+  <div style="padding:24px">
 
-<div class="controls">
-<input type="file" @change="onFileChange" accept=".obj" />
+    <div class="controls">
+      <input type="file" @change="onFileChange" accept=".obj" />
 
-<span v-if="vertexCount">
-原始顶点: {{originalCount}} | 当前顶点: {{vertexCount}}
-</span>
+      <span v-if="vertexCount">
+        原始顶点: {{ originalCount }}
+      </span>
 
-<input v-model.number="targetCount" type="number" style="width:100px"/>
+      <input v-model.number="targetCount" type="number" placeholder="目标顶点数" style="width:120px" />
 
-<button @click="executeSimplify" :disabled="simplifying">
-{{simplifying?'简化中...':'执行简化'}}
-</button>
-</div>
+      <input v-model.number="simplifyRate" type="number" placeholder="简化率 (0-1)" style="width:120px; margin-left: 10px;"
+        min="0" max="1" step="0.01" />
 
-<div ref="threeContainer" class="canvas-container"></div>
+      <label style="margin-left: 20px; margin-right: 10px;">
+        <input v-model="useOptim" type="checkbox" />
+        启用价感知
+      </label>
 
-</div>
+      <label style="margin-right: 10px;">
+        <input v-model="useIsotropic" type="checkbox" />
+        启用各向同性
+      </label>
+
+      <button @click="submitSimplify" :disabled="simplifying || !filePath">
+        {{ simplifying ? '提交中...' : '提交简化' }}
+      </button>
+
+      <span v-if="submitMessage" style="margin-left: 20px; color: #44aaee;">
+        {{ submitMessage }}
+      </span>
+    </div>
+
+    <div ref="threeContainer" class="canvas-container"></div>
+
+  </div>
 </template>
 
 <script>
 
 import * as THREE from "three"
-import {OBJLoader} from "three/examples/jsm/loaders/OBJLoader.js"
-import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js"
-import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js"
-
-/* ---------------- HalfEdge ---------------- */
-
-class HalfEdge{
-constructor(){
-this.vertex=null
-this.next=null
-this.prev=null
-this.twin=null
-this.face=null
-}
-}
+import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js"
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+import request from "@/utils/request"
 
-class Vertex{
-constructor(pos){
-this.position=pos.clone()
-this.halfEdge=null
-this.Q=new THREE.Matrix4().set(
-0,0,0,0,
-0,0,0,0,
-0,0,0,0,
-0,0,0,0
-)
-this.id=-1
-}
-}
+export default {
 
-class Face{
-constructor(){
-this.halfEdge=null
-this.normal=new THREE.Vector3()
-}
-}
+  data() {
+    return {
 
-/* ---------------- HalfEdgeMesh ---------------- */
+      scene: null,
+      camera: null,
+      renderer: null,
 
-class HalfEdgeMesh{
+      objMesh: null,
+      filePath: null,
 
-constructor(){
-this.vertices=[]
-this.faces=[]
-this.halfEdges=[]
-}
+      originalCount: 0,
+      vertexCount: null,
 
-/* build mesh */
+      targetCount: null,
+      simplifyRate: 0.5,
+      useOptim: false,
+      useIsotropic: false,
 
-buildFromGeometry(geometry){
+      simplifying: false,
+      submitMessage: ''
+    }
+  },
 
-const pos=geometry.attributes.position.array
-const idx=geometry.index.array
+  methods: {
 
-for(let i=0;i<pos.length;i+=3){
-const v=new Vertex(new THREE.Vector3(pos[i],pos[i+1],pos[i+2]))
-v.id=this.vertices.length
-this.vertices.push(v)
-}
+    submitSimplify() {
 
-const edgeMap=new Map()
+      if (!this.filePath) {
+        this.submitMessage = '请先上传模型文件'
+        return
+      }
 
-for(let i=0;i<idx.length;i+=3){
+      if (!this.targetCount && this.simplifyRate === 0.5) {
+        this.submitMessage = '请输入目标顶点数或调整简化率'
+        return
+      }
 
-const a=idx[i]
-const b=idx[i+1]
-const c=idx[i+2]
+      this.simplifying = true
+      this.submitMessage = ''
 
-const he0=new HalfEdge()
-const he1=new HalfEdge()
-const he2=new HalfEdge()
+      const payload = {
+        input: this.filePath,
+      }
 
-const face=new Face()
+      if (this.targetCount) {
+        payload.v = this.targetCount
+      }
 
-he0.vertex=this.vertices[b]
-he1.vertex=this.vertices[c]
-he2.vertex=this.vertices[a]
+      if (this.simplifyRate !== 0.5) {
+        payload.p = this.simplifyRate
+      }
 
-he0.next=he1
-he1.next=he2
-he2.next=he0
+      if (this.useOptim) {
+        payload.optim = true
+      }
 
-he0.prev=he2
-he1.prev=he0
-he2.prev=he1
+      if (this.useIsotropic) {
+        payload.isotropic = true
+      }
 
-he0.face=he1.face=he2.face=face
-face.halfEdge=he0
+      console.log('提交数据：', payload)
 
-this.halfEdges.push(he0,he1,he2)
-this.faces.push(face)
+      this.submitRequest(payload)
 
-this.linkTwin(edgeMap,a,b,he0)
-this.linkTwin(edgeMap,b,c,he1)
-this.linkTwin(edgeMap,c,a,he2)
+    },
 
-if(!this.vertices[a].halfEdge) this.vertices[a].halfEdge=he0
-if(!this.vertices[b].halfEdge) this.vertices[b].halfEdge=he1
-if(!this.vertices[c].halfEdge) this.vertices[c].halfEdge=he2
+    submitRequest(data) {
 
-this.updateFaceNormal(face)
-}
+      // 使用项目的axios实例发送请求
+      request.post('/system/tasks/model', data).then(resp => {
 
-this.computeQuadrics()
-}
+        this.simplifying = false
 
-linkTwin(map,a,b,he){
+        // AjaxResult 格式：{code: 200, msg: "success", data: ...}
+        if (resp.code === 200) {
+          this.submitMessage = '✓ 提交成功，任务ID: ' + resp.data?.taskNo
+          console.log('任务创建成功：', resp.data)
 
-const key=a+"_"+b
-const twin=b+"_"+a
+          // 如果有输出模型路径，加载简化后的模型
+          if (resp.data?.outputModelPath) {
+            this.loadOutputModel(resp.data.outputModelPath, resp.data)
+          }
+        } else {
+          this.submitMessage = '✗ 提交失败：' + (resp.msg || '未知错误')
+          console.warn('提交失败响应：', resp)
+        }
 
-if(map.has(twin)){
+      }).catch(err => {
 
-const t=map.get(twin)
-he.twin=t
-t.twin=he
+        this.simplifying = false
+        this.submitMessage = '✗ 请求出错：' + (err.response?.data?.msg || err.message)
+        console.error('请求错误：', err)
 
-}else{
+      })
 
-map.set(key,he)
+    },
 
-}
-}
+    loadOutputModel(modelPath, taskData) {
 
-updateFaceNormal(face){
+      // 使用项目的axios实例下载模型文件
+      request.get(modelPath, { responseType: 'blob' }).then(blob => {
 
-const he=face.halfEdge
+        const reader = new FileReader()
 
-const v0=he.prev.vertex.position
-const v1=he.vertex.position
-const v2=he.next.vertex.position
+        reader.onload = (ev) => {
 
-face.normal.crossVectors(
-new THREE.Vector3().subVectors(v1,v0),
-new THREE.Vector3().subVectors(v2,v0)
-).normalize()
+          const obj = new OBJLoader().parse(ev.target.result)
 
-}
+          // 清除旧模型
+          if (this.objMesh) {
+            this.scene.remove(this.objMesh)
+          }
 
-/* ---------------- Quadric ---------------- */
+          obj.traverse(c => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshStandardMaterial({
+                color: 0x44aaee,
+                wireframe: false,
+                roughness: 0.7,
+                metalness: 0.2
+              })
+            }
+          })
 
-computeQuadrics(){
+          this.objMesh = obj
+          this.scene.add(obj)
 
-for(const face of this.faces){
+          // 更新顶点信息
+          const processedCount = taskData.processedVertexCount
+          const targetCount = taskData.targetVertexCount
 
-const he=face.halfEdge
+          this.submitMessage = `✓ 已加载简化后的模型 | 原顶点: ${this.originalCount} → 简化后: ${processedCount}`
 
-const v0=he.prev.vertex.position
-const v1=he.vertex.position
-const v2=he.next.vertex.position
+        }
 
-const n=new THREE.Vector3()
+        reader.readAsText(blob)
 
-n.crossVectors(
-new THREE.Vector3().subVectors(v1,v0),
-new THREE.Vector3().subVectors(v2,v0)
-).normalize()
+      }).catch(err => {
 
-const d=-n.dot(v0)
+        this.submitMessage = '✗ 加载模型失败：' + (err.message || '未知错误')
+        console.error('加载模型错误：', err)
 
-const p=[n.x,n.y,n.z,d]
+      })
 
-const K=new THREE.Matrix4()
+    },
 
-const e=[]
+    initThree() {
 
-for(let i=0;i<4;i++)
-for(let j=0;j<4;j++)
-e[i*4+j]=p[i]*p[j]
+      const container = this.$refs.threeContainer
 
-K.set(
-e[0],e[1],e[2],e[3],
-e[4],e[5],e[6],e[7],
-e[8],e[9],e[10],e[11],
-e[12],e[13],e[14],e[15]
-)
+      this.scene = new THREE.Scene()
+      this.scene.background = new THREE.Color(0x1a1a1a)
 
-let h=he
+      this.camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+      )
 
-for(let i=0;i<3;i++){
-this.addMatrix(h.prev.vertex.Q,K)
-h=h.next
-}
+      this.camera.position.set(2, 2, 5)
 
-}
-}
+      this.renderer = new THREE.WebGLRenderer({ antialias: true })
 
-addMatrix(a,b){
+      this.renderer.setSize(container.clientWidth, container.clientHeight)
 
-for(let i=0;i<16;i++)
-a.elements[i]+=b.elements[i]
+      container.appendChild(this.renderer.domElement)
 
-}
+      const light = new THREE.DirectionalLight(0xffffff, 1)
 
-/* ---------------- Edge Collapse ---------------- */
+      light.position.set(5, 5, 5)
 
-collapseEdge(he,target){
+      this.scene.add(light)
 
-const v1=he.prev.vertex
-const v2=he.vertex
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.6))
 
-v1.position.copy(target)
+      new OrbitControls(this.camera, this.renderer.domElement)
 
-this.addMatrix(v1.Q,v2.Q)
+      const loop = () => {
+        requestAnimationFrame(loop)
+        this.renderer.render(this.scene, this.camera)
+      }
 
-for(const edge of this.halfEdges){
-if(edge.vertex===v2)
-edge.vertex=v1
-}
+      loop()
 
-v2.halfEdge=null
+    },
 
-this.removeFace(he.face)
+    onFileChange(e) {
 
-if(he.twin)
-this.removeFace(he.twin.face)
-}
+      const file = e.target.files[0]
 
-removeFace(face){
+      if (!file) return
 
-if(!face) return
+      // 保存文件路径
+      this.filePath = file.name
 
-let he=face.halfEdge
+      const reader = new FileReader()
 
-for(let i=0;i<3;i++){
+      reader.onload = (ev) => {
 
-const id=this.halfEdges.indexOf(he)
+        const obj = new OBJLoader().parse(ev.target.result)
 
-if(id!=-1)
-this.halfEdges.splice(id,1)
+        // 清除旧模型
+        if (this.objMesh) {
+          this.scene.remove(this.objMesh)
+        }
 
-he=he.next
+        obj.traverse(c => {
+          if (c.isMesh) {
+            c.material = new THREE.MeshStandardMaterial({
+              color: 0x44aaee,
+              wireframe: false,
+              roughness: 0.7,
+              metalness: 0.2
+            })
+            this.originalCount = c.geometry.attributes.position.count
+            this.vertexCount = this.originalCount
+          }
+        })
 
-}
+        this.objMesh = obj
+        this.scene.add(obj)
 
-const fi=this.faces.indexOf(face)
+        this.submitMessage = `已加载 ${this.originalCount} 个顶点`
 
-if(fi!=-1)
-this.faces.splice(fi,1)
+      }
 
-}
+      reader.readAsText(file)
 
-/* ---------------- neighbor ---------------- */
+    }
 
-getNeighborVertices(v){
+  },
 
-const list=[]
-
-let he=v.halfEdge
-if(!he) return list
-
-const start=he
-
-do{
-
-list.push(he.vertex)
-
-he=he.twin?.next
-
-}while(he && he!==start)
-
-return list
-
-}
-
-getEdges(){
-
-const edges=[]
-const set=new Set()
-
-for(const he of this.halfEdges){
-
-const a=he.prev.vertex.id
-const b=he.vertex.id
-
-const key=a<b?a+"_"+b:b+"_"+a
-
-if(!set.has(key)){
-set.add(key)
-edges.push(he)
-}
-
-}
-
-return edges
-
-}
-
-getVertexCount(){
-return this.vertices.filter(v=>v.halfEdge!=null).length
-}
-
-}
-
-/* ---------------- MinHeap ---------------- */
-
-class MinHeap{
-
-constructor(compare){
-this.nodes=[]
-this.compare=compare
-}
-
-push(n){
-this.nodes.push(n)
-this.bubble(this.nodes.length-1)
-}
-
-bubble(i){
-
-while(i>0){
-
-const p=(i-1)>>1
-
-if(this.compare(this.nodes[i],this.nodes[p])<0){
-
-[this.nodes[i],this.nodes[p]]=[this.nodes[p],this.nodes[i]]
-
-i=p
-
-}else break
-
-}
-
-}
-
-pop(){
-
-if(this.nodes.length===0) return null
-
-const top=this.nodes[0]
-const end=this.nodes.pop()
-
-if(this.nodes.length>0){
-this.nodes[0]=end
-this.sink(0)
-}
-
-return top
-}
-
-sink(i){
-
-while(true){
-
-let l=i*2+1
-let r=i*2+2
-let s=i
-
-if(l<this.nodes.length && this.compare(this.nodes[l],this.nodes[s])<0) s=l
-if(r<this.nodes.length && this.compare(this.nodes[r],this.nodes[s])<0) s=r
-
-if(s!==i){
-[this.nodes[i],this.nodes[s]]=[this.nodes[s],this.nodes[i]]
-i=s
-}else break
-
-}
-
-}
-
-size(){return this.nodes.length}
-
-}
-
-/* ---------------- Vue ---------------- */
-
-export default{
-
-data(){
-return{
-
-scene:null,
-camera:null,
-renderer:null,
-
-objMesh:null,
-
-originalCount:0,
-vertexCount:null,
-
-targetCount:500,
-
-simplifying:false
-}
-},
-
-methods:{
-
-executeSimplify(){
-
-if(!this.objMesh) return
-
-const mesh=this.findFirstMesh()
-
-let geometry=mesh.geometry.clone()
-
-geometry=BufferGeometryUtils.mergeVertices(geometry,0.001)
-
-const heMesh=new HalfEdgeMesh()
-
-heMesh.buildFromGeometry(geometry)
-
-const heap=new MinHeap((a,b)=>a.cost-b.cost)
-
-const edges=heMesh.getEdges()
-
-for(const he of edges){
-
-if(!he.twin) continue
-
-const cost=this.calculateEdgeCost(he,heMesh)
-
-heap.push({halfEdge:he,cost:cost.cost,targetPos:cost.targetPos})
-
-}
-
-while(heMesh.getVertexCount()>this.targetCount && heap.size()>0){
-
-const e=heap.pop()
-
-if(!e.halfEdge.prev.vertex || !e.halfEdge.vertex) continue
-
-heMesh.collapseEdge(e.halfEdge,e.targetPos)
-
-}
-
-this.updateMesh(mesh,heMesh)
-
-this.vertexCount=heMesh.getVertexCount()
-
-},
-
-calculateEdgeCost(he,mesh){
-
-const v1=he.prev.vertex
-const v2=he.vertex
-
-const Q=new THREE.Matrix4().copy(v1.Q)
-
-mesh.addMatrix(Q,v2.Q)
-
-const target=new THREE.Vector3()
-.addVectors(v1.position,v2.position)
-.multiplyScalar(0.5)
-
-const v=new THREE.Vector4(target.x,target.y,target.z,1)
-
-const r=v.clone().applyMatrix4(Q)
-
-const cost=v.x*r.x+v.y*r.y+v.z*r.z+v.w*r.w
-
-return{cost,targetPos:target}
-
-},
-
-updateMesh(mesh,heMesh){
-
-const pos=[]
-const idx=[]
-const map=new Map()
-
-let id=0
-
-for(const v of heMesh.vertices){
-
-if(v.halfEdge){
-
-map.set(v.id,id++)
-
-pos.push(v.position.x,v.position.y,v.position.z)
-
-}
-
-}
-
-for(const f of heMesh.faces){
-
-let he=f.halfEdge
-
-const a=map.get(he.prev.vertex.id)
-const b=map.get(he.vertex.id)
-const c=map.get(he.next.vertex.id)
-
-if(a!=b && b!=c && a!=c)
-idx.push(a,b,c)
-
-}
-
-const geo=new THREE.BufferGeometry()
-
-geo.setAttribute("position",new THREE.Float32BufferAttribute(pos,3))
-geo.setIndex(idx)
-geo.computeVertexNormals()
-
-mesh.geometry.dispose()
-
-mesh.geometry=geo
-
-},
-
-initThree(){
-
-const container=this.$refs.threeContainer
-
-this.scene=new THREE.Scene()
-
-this.camera=new THREE.PerspectiveCamera(
-45,
-container.clientWidth/container.clientHeight,
-0.1,
-1000
-)
-
-this.camera.position.set(2,2,5)
-
-this.renderer=new THREE.WebGLRenderer({antialias:true})
-
-this.renderer.setSize(container.clientWidth,container.clientHeight)
-
-container.appendChild(this.renderer.domElement)
-
-const light=new THREE.DirectionalLight(0xffffff,1)
-
-light.position.set(5,5,5)
-
-this.scene.add(light)
-
-this.scene.add(new THREE.AmbientLight(0xffffff,0.6))
-
-new OrbitControls(this.camera,this.renderer.domElement)
-
-const loop=()=>{
-requestAnimationFrame(loop)
-this.renderer.render(this.scene,this.camera)
-}
-
-loop()
-
-},
-
-onFileChange(e){
-
-const file=e.target.files[0]
-
-const reader=new FileReader()
-
-reader.onload=(ev)=>{
-
-const obj=new OBJLoader().parse(ev.target.result)
-
-obj.traverse(c=>{
-if(c.isMesh){
-c.material=new THREE.MeshStandardMaterial({
-color:0x44aaee,
-wireframe:true
-})
-this.originalCount=c.geometry.attributes.position.count
-this.vertexCount=this.originalCount
-}
-})
-
-this.objMesh=obj
-this.scene.add(obj)
-
-}
-
-reader.readAsText(file)
-
-},
-
-findFirstMesh(){
-
-let m=null
-
-this.objMesh.traverse(c=>{
-if(c.isMesh && !m) m=c
-})
-
-return m
-
-}
-
-},
-
-mounted(){
-this.initThree()
-}
+  mounted() {
+    this.initThree()
+  }
 
 }
 </script>
 
 <style scoped>
-
-.controls{
-margin-bottom:10px;
-display:flex;
-gap:10px;
-align-items:center;
+.controls {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 4px;
 }
 
-.canvas-container{
-width:100%;
-height:calc(100vh - 120px);
-border:1px solid #444;
+.controls input[type="file"] {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
 }
 
-button{
-padding:6px 12px;
-background:#44aaee;
-color:white;
-border:none;
-cursor:pointer;
+.controls input[type="number"] {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
 }
 
+.controls input[type="checkbox"] {
+  margin-right: 5px;
+}
+
+.controls label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.canvas-container {
+  width: 100%;
+  height: calc(100vh - 160px);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #000;
+}
+
+button {
+  padding: 8px 16px;
+  background: #44aaee;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #2898dd;
+  box-shadow: 0 2px 8px rgba(68, 170, 238, 0.3);
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+span[style*="color"] {
+  font-size: 14px;
+  font-weight: 500;
+}
 </style>

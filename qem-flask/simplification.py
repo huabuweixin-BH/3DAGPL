@@ -31,8 +31,14 @@ def simplify_mesh(args):
     else:
         simp_mesh = mesh.simplification(target_v=target_v, valence_aware=args.optim)
     os.makedirs("data/output/", exist_ok=True)
-    simp_mesh.save("data/output/{}_{}.obj".format(mesh_name, simp_mesh.vs.shape[0]))
-    return f"Simplification Completed! Output saved as data/output/{mesh_name}_{simp_mesh.vs.shape[0]}.obj"
+    output_file = "data/output/{}_{}.obj".format(mesh_name, simp_mesh.vs.shape[0])
+    simp_mesh.save(output_file)
+    vertex_count = simp_mesh.vs.shape[0]
+    return {
+        "message": f"Simplification Completed! Output saved as {output_file}",
+        "output_file": output_file,
+        "vertex_count": vertex_count
+    }
 
 @app.route('/model', methods=['POST'])
 def model():
@@ -51,16 +57,21 @@ def model():
         args.optim = data.get('optim', False)
         args.isotropic = data.get('isotropic', False)
         
-        message = simplify_mesh(args)
-        return {"status": "success", "message": message}
+        result = simplify_mesh(args)
+        return {
+            "status": "success",
+            "message": result["message"],
+            "output_file": result["output_file"],
+            "vertex_count": result["vertex_count"]
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
 
 def main():
     args = get_parser()
     try:
-        message = simplify_mesh(args)
-        print(f"[FIN] {message}")
+        result = simplify_mesh(args)
+        print(f"[FIN] {result['message']}")
     except ValueError as e:
         print(f"[ERROR]: {e}")
 

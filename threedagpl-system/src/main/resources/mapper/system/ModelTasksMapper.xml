@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.threedagpl.system.mapper.ModelTasksMapper">
+    
+    <resultMap type="ModelTasks" id="ModelTasksResult">
+        <result property="id"    column="id"    />
+        <result property="taskNo"    column="task_no"    />
+        <result property="userId"    column="user_id"    />
+        <result property="inputModelPath"    column="input_model_path"    />
+        <result property="outputModelPath"    column="output_model_path"    />
+        <result property="algorithm"    column="algorithm"    />
+        <result property="status"    column="status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+        <result property="originalVertexCount"    column="original_vertex_count"    />
+        <result property="targetVertexCount"    column="target_vertex_count"    />
+        <result property="processedVertexCount"    column="processed_vertex_count"    />
+    </resultMap>
+
+    <sql id="selectModelTasksVo">
+        select id, task_no, user_id, input_model_path, output_model_path, algorithm, status, create_time, update_time, remark, original_vertex_count, target_vertex_count, processed_vertex_count from model_tasks
+    </sql>
+
+    <select id="selectModelTasksList" parameterType="ModelTasks" resultMap="ModelTasksResult">
+        <include refid="selectModelTasksVo"/>
+        <where>  
+            <if test="taskNo != null  and taskNo != ''"> and task_no = #{taskNo}</if>
+            <if test="userId != null "> and user_id = #{userId}</if>
+            <if test="inputModelPath != null  and inputModelPath != ''"> and input_model_path = #{inputModelPath}</if>
+            <if test="outputModelPath != null  and outputModelPath != ''"> and output_model_path = #{outputModelPath}</if>
+            <if test="algorithm != null  and algorithm != ''"> and algorithm = #{algorithm}</if>
+            <if test="status != null "> and status = #{status}</if>
+            <if test="originalVertexCount != null "> and original_vertex_count = #{originalVertexCount}</if>
+            <if test="targetVertexCount != null "> and target_vertex_count = #{targetVertexCount}</if>
+            <if test="processedVertexCount != null "> and processed_vertex_count = #{processedVertexCount}</if>
+        </where>
+    </select>
+    
+    <select id="selectModelTasksById" parameterType="Long" resultMap="ModelTasksResult">
+    </select>
+
+    <insert id="insertModelTasks" parameterType="ModelTasks" useGeneratedKeys="true" keyProperty="id">
+        insert into model_tasks
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskNo != null and taskNo != ''">task_no,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="inputModelPath != null and inputModelPath != ''">input_model_path,</if>
+            <if test="outputModelPath != null">output_model_path,</if>
+            <if test="algorithm != null and algorithm != ''">algorithm,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+            <if test="originalVertexCount != null">original_vertex_count,</if>
+            <if test="targetVertexCount != null">target_vertex_count,</if>
+            <if test="processedVertexCount != null">processed_vertex_count,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskNo != null and taskNo != ''">#{taskNo},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="inputModelPath != null and inputModelPath != ''">#{inputModelPath},</if>
+            <if test="outputModelPath != null">#{outputModelPath},</if>
+            <if test="algorithm != null and algorithm != ''">#{algorithm},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="originalVertexCount != null">#{originalVertexCount},</if>
+            <if test="targetVertexCount != null">#{targetVertexCount},</if>
+            <if test="processedVertexCount != null">#{processedVertexCount},</if>
+         </trim>
+    </insert>
+
+    <update id="updateModelTasks" parameterType="ModelTasks">
+        update model_tasks
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskNo != null and taskNo != ''">task_no = #{taskNo},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="inputModelPath != null and inputModelPath != ''">input_model_path = #{inputModelPath},</if>
+            <if test="outputModelPath != null">output_model_path = #{outputModelPath},</if>
+            <if test="algorithm != null and algorithm != ''">algorithm = #{algorithm},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="originalVertexCount != null">original_vertex_count = #{originalVertexCount},</if>
+            <if test="targetVertexCount != null">target_vertex_count = #{targetVertexCount},</if>
+            <if test="processedVertexCount != null">processed_vertex_count = #{processedVertexCount},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteModelTasksById" parameterType="Long">
+        delete from model_tasks where id = #{id}
+    </delete>
+
+    <delete id="deleteModelTasksByIds" parameterType="String">
+        delete from model_tasks where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>
