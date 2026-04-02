@@ -64,40 +64,149 @@
       @pagination="getList"
     />
 
-    <!-- 文章详情对话框 -->
+    <!-- 文章详情对话框（全屏） -->
     <el-dialog
-      title="文章详情"
+      :title="''"
       :visible.sync="dialogVisible"
-      width="800px"
+      width="100%"
+      top="0"
+      :fullscreen="true"
       append-to-body
-      class="article-detail-dialog"
+      class="article-detail-dialog-fullscreen"
+      :before-close="handleCloseDialog"
     >
-      <div class="article-detail" v-if="currentArticle">
-        <div class="article-detail-header">
-          <h2 class="article-detail-title">{{ currentArticle.title }}</h2>
-          <div class="article-detail-meta">
-            <el-tag :type="getStatusTagType(currentArticle.status)" size="mini">
-              {{ formatStatus(currentArticle.status) }}
-            </el-tag>
-            <span class="meta-item">
-              <i class="el-icon-user"></i>
-              {{ currentArticle.createBy }}
-            </span>
-            <span class="meta-item">
-              <i class="el-icon-time"></i>
-              {{ parseTime(currentArticle.createTime, '{y}-{m}-{d} {h}:{i}:{s}') }}
-            </span>
+      <div class="article-detail-container" v-if="currentArticle">
+        <!-- 关闭按钮 -->
+        <el-button class="close-dialog-btn" icon="el-icon-close" circle @click="handleCloseDialog"></el-button>
+        
+        <div class="article-detail-wrapper">
+          <!-- 文章头部 -->
+          <div class="article-detail-header">
+            <h1 class="article-detail-title">{{ currentArticle.title }}</h1>
+            <div class="article-detail-meta">
+              <el-tag :type="getStatusTagType(currentArticle.status)" size="small">
+                {{ formatStatus(currentArticle.status) }}
+              </el-tag>
+              <span class="meta-item">
+                <i class="el-icon-user"></i>
+                {{ currentArticle.createBy }}
+              </span>
+              <span class="meta-item">
+                <i class="el-icon-time"></i>
+                {{ parseTime(currentArticle.createTime, '{y}-{m}-{d} {h}:{i}:{s}') }}
+              </span>
+              <span class="meta-item" v-if="currentArticle.updateTime">
+                <i class="el-icon-edit"></i>
+                更新于 {{ parseTime(currentArticle.updateTime, '{y}-{m}-{d} {h}:{i}:{s}') }}
+              </span>
+            </div>
           </div>
-        </div>
-        <el-divider></el-divider>
-        <div class="article-detail-summary" v-if="currentArticle.summary">
-          <h4>摘要</h4>
-          <p>{{ currentArticle.summary }}</p>
-        </div>
-        <el-divider></el-divider>
-        <div class="article-detail-content">
-          <h4>正文</h4>
-          <div class="article-content-html" v-html="currentArticle.contentHtml"></div>
+
+          <!-- 摘要 -->
+          <div class="article-detail-summary" v-if="currentArticle.summary">
+            <div class="section-title">
+              <i class="el-icon-document"></i>
+              <span>摘要</span>
+            </div>
+            <p class="summary-content">{{ currentArticle.summary }}</p>
+          </div>
+
+          <!-- 正文 -->
+          <div class="article-detail-content">
+            <div class="section-title">
+              <i class="el-icon-edit-outline"></i>
+              <span>正文</span>
+            </div>
+            <div class="article-content-html" v-html="currentArticle.contentHtml"></div>
+          </div>
+
+          <el-divider></el-divider>
+
+          <!-- 评论区 -->
+          <div class="article-comments-section">
+            <div class="section-title">
+              <i class="el-icon-chat-dot-round"></i>
+              <span>评论区</span>
+              <span class="comment-count" v-if="comments.length > 0">({{ comments.length }})</span>
+            </div>
+
+            <!-- 发表评论 -->
+            <div class="comment-form-wrapper">
+              <el-input
+                v-model="newComment.content"
+                type="textarea"
+                :rows="4"
+                placeholder="写下你的评论..."
+                class="comment-input"
+              ></el-input>
+              <div class="comment-form-actions">
+                <el-button type="primary" @click="handlePostComment" :loading="postingComment">
+                  发表评论
+                </el-button>
+                <el-button @click="() => newComment.content = ''">取消</el-button>
+              </div>
+            </div>
+
+            <!-- 评论列表 -->
+            <div class="comments-list">
+              <div
+                v-for="comment in comments"
+                :key="comment.id"
+                class="comment-item"
+              >
+                <div class="comment-avatar">
+                  <i class="el-icon-user-solid"></i>
+                </div>
+                <div class="comment-content">
+                  <div class="comment-header">
+                    <span class="comment-author">{{ comment.userName || comment.createBy || '匿名用户' }}</span>
+                    <span class="comment-time">
+                      {{ parseTime(comment.createTime, '{y}-{m}-{d} {h}:{i}') }}
+                    </span>
+                  </div>
+                  <div class="comment-text">
+                    {{ comment.content }}
+                  </div>
+                  <div class="comment-actions">
+                    <el-button type="text" size="mini" @click="handleReplyComment(comment)">
+                      <i class="el-icon-chat-line-square"></i> 回复
+                    </el-button>
+                    <el-button
+                      v-if="canDeleteComment(comment)"
+                      type="text"
+                      size="mini"
+                      class="delete-btn"
+                      @click="handleDeleteComment(comment)"
+                    >
+                      <i class="el-icon-delete"></i> 删除
+                    </el-button>
+                  </div>
+                  <!-- 回复列表 -->
+                  <div class="reply-list" v-if="comment.replies && comment.replies.length > 0">
+                    <div
+                      v-for="reply in comment.replies"
+                      :key="reply.id"
+                      class="reply-item"
+                    >
+                      <div class="reply-header">
+                        <span class="reply-author">{{ reply.userName || reply.createBy || '匿名用户' }}</span>
+                        <span class="reply-time">
+                          {{ parseTime(reply.createTime, '{y}-{m}-{d} {h}:{i}') }}
+                        </span>
+                      </div>
+                      <div class="reply-text">
+                        <span v-if="reply.replyToUserName" class="reply-to">@{{ reply.replyToUserName }} </span>
+                        {{ reply.content }}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 空状态 -->
+              <el-empty v-if="comments.length === 0" description="暂无评论，快来抢沙发吧~" :image-size="80"></el-empty>
+            </div>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -106,6 +215,8 @@
 
 <script>
 import { listArticle } from "@/api/system/article";
+import { listComments, addComment, delComment } from "@/api/system/comment";
+import { getToken } from '@/utils/auth';
 
 export default {
   name: "AlgorithmFormu",
@@ -122,12 +233,23 @@ export default {
         pageNum: 1,
         pageSize: 10,
         title: null,
-        status: '1' // 默认只显示已发布的文章
+        status: '1'
       },
       // 文章详情对话框
       dialogVisible: false,
       // 当前查看的文章
-      currentArticle: null
+      currentArticle: null,
+      // 评论列表
+      comments: [],
+      // 新评论
+      newComment: {
+        content: '',
+        articleId: null,
+        parentId: null,
+        replyToUserId: null
+      },
+      // 发表评论加载中
+      postingComment: false
     };
   },
   created() {
@@ -167,7 +289,110 @@ export default {
     /** 查看文章详情 */
     handleViewArticle(article) {
       this.currentArticle = article;
+      this.newComment.articleId = article.id;
       this.dialogVisible = true;
+      // 加载评论
+      this.loadComments(article.id);
+    },
+
+    /** 关闭对话框 */
+    handleCloseDialog() {
+      this.$confirm('确定要关闭文章详情吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.dialogVisible = false;
+        this.currentArticle = null;
+        this.comments = [];
+        this.newComment = { content: '', articleId: null, parentId: null, replyToUserId: null };
+      }).catch(() => {});
+    },
+
+    /** 加载评论 */
+    loadComments(articleId) {
+      this.comments = [];
+      listComments(articleId).then(response => {
+        const allComments = response.data || [];
+        // 将评论按 parentId 分组，构建层级结构
+        const mainComments = allComments.filter(c => !c.parentId || c.parentId === 0);
+        const replies = allComments.filter(c => c.parentId && c.parentId > 0);
+        
+        // 将回复关联到主评论
+        mainComments.forEach(main => {
+          main.replies = replies.filter(r => r.parentId === main.id);
+        });
+        
+        this.comments = mainComments;
+      }).catch(() => {
+        this.comments = [];
+      });
+    },
+
+    /** 发表评论 */
+    handlePostComment() {
+      if (!this.newComment.content || !this.newComment.content.trim()) {
+        this.$message.warning('请输入评论内容');
+        return;
+      }
+
+      this.postingComment = true;
+
+      const submitData = {
+        articleId: this.newComment.articleId,
+        content: this.newComment.content.trim(),
+        parentId: this.newComment.parentId || 0,
+        replyToUserId: this.newComment.replyToUserId,
+        status: '0'
+      };
+
+      addComment(submitData).then(response => {
+        this.$message.success('评论成功');
+        // 重新加载评论
+        this.loadComments(this.newComment.articleId);
+        this.newComment = { content: '', articleId: null, parentId: null, replyToUserId: null };
+        this.postingComment = false;
+      }).catch(error => {
+        this.$message.error('评论失败：' + (error.message || '未知错误'));
+        this.postingComment = false;
+      });
+    },
+
+    /** 回复评论 */
+    handleReplyComment(comment) {
+      this.newComment.parentId = comment.id;
+      this.newComment.replyToUserId = comment.userId;
+      this.$message.info(`回复 @${comment.userName || '用户'}`);
+      // 滚动到评论框
+      this.$nextTick(() => {
+        const commentInput = document.querySelector('.comment-input textarea');
+        if (commentInput) {
+          commentInput.focus();
+        }
+      });
+    },
+
+    /** 删除评论 */
+    handleDeleteComment(comment) {
+      this.$confirm('确定要删除这条评论吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        delComment([comment.id]).then(() => {
+          this.$message.success('删除成功');
+          // 重新加载评论
+          this.loadComments(this.currentArticle.id);
+        }).catch(error => {
+          this.$message.error('删除失败：' + (error.message || '未知错误'));
+        });
+      }).catch(() => {});
+    },
+
+    /** 判断是否可以删除评论 */
+    canDeleteComment(comment) {
+      // TODO: 根据当前用户权限判断
+      return false;
     },
 
     /** 格式化状态显示 */
@@ -319,133 +544,362 @@ export default {
   }
 }
 
-/* 文章详情对话框样式 */
-.article-detail-dialog {
+/* 文章详情对话框样式 - 全屏 */
+.article-detail-dialog-fullscreen {
+  ::v-deep .el-dialog {
+    height: 100vh !important;
+    margin-top: 0 !important;
+    max-height: 100vh !important;
+  }
+
   ::v-deep .el-dialog__body {
+    padding: 0;
+    height: 100%;
+  }
+
+  ::v-deep .el-dialog__header {
     padding: 0;
   }
 }
 
-.article-detail {
-  padding: 24px;
-  max-height: 70vh;
+.close-dialog-btn {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: none;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}
+
+.article-detail-container {
+  height: 100%;
+  background-color: #f5f7fa;
   overflow-y: auto;
+  padding: 60px 20px 20px;
+}
+
+.article-detail-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 40px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .article-detail-header {
-  margin-bottom: 20px;
+  margin-bottom: 32px;
 }
 
 .article-detail-title {
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   color: #303133;
-  margin: 0 0 16px 0;
+  margin: 0 0 20px 0;
   line-height: 1.4;
 }
 
 .article-detail-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   font-size: 14px;
   color: #909399;
+  flex-wrap: wrap;
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    i {
+      font-size: 16px;
+    }
+  }
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+
+  i {
+    font-size: 20px;
+    color: #409EFF;
+  }
+
+  .comment-count {
+    font-size: 14px;
+    color: #909399;
+    font-weight: normal;
+  }
 }
 
 .article-detail-summary {
-  h4 {
-    font-size: 16px;
-    color: #303133;
-    margin: 0 0 12px 0;
-  }
+  margin-bottom: 32px;
+  padding: 20px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  border-left: 4px solid #409EFF;
 
-  p {
-    font-size: 14px;
+  .summary-content {
+    font-size: 15px;
     color: #606266;
     line-height: 1.8;
     margin: 0;
-    padding: 12px 16px;
-    background-color: #f5f7fa;
-    border-radius: 4px;
   }
 }
 
 .article-detail-content {
-  h4 {
+  margin-bottom: 32px;
+
+  .article-content-html {
     font-size: 16px;
+    line-height: 1.8;
     color: #303133;
-    margin: 0 0 12px 0;
+    min-height: 200px;
+
+    ::v-deep {
+      p {
+        margin: 16px 0;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+
+      h1, h2, h3, h4, h5, h6 {
+        margin: 24px 0 16px;
+        color: #303133;
+        font-weight: 600;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      h2 {
+        font-size: 24px;
+      }
+
+      h3 {
+        font-size: 20px;
+      }
+
+      h4 {
+        font-size: 18px;
+      }
+
+      ul, ol {
+        padding-left: 24px;
+        margin: 16px 0;
+      }
+
+      li {
+        margin: 8px 0;
+      }
+
+      blockquote {
+        margin: 20px 0;
+        padding: 16px 20px;
+        background-color: #f5f7fa;
+        border-left: 4px solid #409EFF;
+        border-radius: 4px;
+        color: #606266;
+      }
+
+      code {
+        padding: 3px 8px;
+        background-color: #f5f7fa;
+        border-radius: 4px;
+        font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        font-size: 14px;
+        color: #e74c3c;
+      }
+
+      pre {
+        margin: 20px 0;
+        padding: 20px;
+        background-color: #282c34;
+        border-radius: 8px;
+        overflow-x: auto;
+
+        code {
+          padding: 0;
+          background-color: transparent;
+          color: #abb2bf;
+        }
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+
+        th, td {
+          border: 1px solid #dcdfe6;
+          padding: 12px 16px;
+          text-align: left;
+        }
+
+        th {
+          background-color: #f5f7fa;
+          font-weight: 600;
+        }
+      }
+
+      hr {
+        border: none;
+        border-top: 1px solid #e4e7ed;
+        margin: 24px 0;
+      }
+    }
   }
 }
 
-.article-content-html {
-  font-size: 15px;
-  line-height: 1.8;
-  color: #303133;
+/* 评论区样式 */
+.article-comments-section {
+  margin-top: 20px;
+}
 
-  ::v-deep {
-    p {
-      margin: 12px 0;
+.comment-form-wrapper {
+  margin-bottom: 32px;
+  padding: 20px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+
+  .comment-input {
+    margin-bottom: 12px;
+  }
+
+  .comment-form-actions {
+    display: flex;
+    gap: 12px;
+  }
+}
+
+.comments-list {
+  .comment-item {
+    display: flex;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
     }
+  }
 
-    img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 4px;
-    }
+  .comment-avatar {
+    flex-shrink: 0;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #e6f7ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #409EFF;
+    font-size: 24px;
+  }
 
-    h1, h2, h3, h4, h5, h6 {
-      margin: 20px 0 12px;
-      color: #303133;
-    }
+  .comment-content {
+    flex: 1;
+  }
 
-    ul, ol {
-      padding-left: 20px;
-    }
+  .comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
 
-    blockquote {
-      margin: 16px 0;
-      padding: 12px 16px;
-      background-color: #f5f7fa;
-      border-left: 4px solid #409EFF;
-      border-radius: 4px;
-    }
+  .comment-author {
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+  }
 
-    code {
-      padding: 2px 6px;
-      background-color: #f5f7fa;
-      border-radius: 3px;
-      font-family: Consolas, Monaco, 'Andale Mono', monospace;
-    }
+  .comment-time {
+    font-size: 13px;
+    color: #909399;
+  }
 
-    pre {
-      margin: 16px 0;
-      padding: 16px;
-      background-color: #282c34;
-      border-radius: 6px;
-      overflow-x: auto;
+  .comment-text {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.6;
+    margin-bottom: 12px;
+  }
 
-      code {
-        padding: 0;
-        background-color: transparent;
-        color: #abb2bf;
+  .comment-actions {
+    display: flex;
+    gap: 12px;
+
+    .delete-btn {
+      color: #f56c6c;
+
+      &:hover {
+        color: #f78989;
       }
     }
+  }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 16px 0;
+  .reply-list {
+    margin-top: 16px;
+    padding-left: 20px;
+    border-left: 2px solid #f0f0f0;
+  }
 
-      th, td {
-        border: 1px solid #dcdfe6;
-        padding: 10px 14px;
-      }
+  .reply-item {
+    padding: 12px 0;
+    margin-top: 12px;
 
-      th {
-        background-color: #f5f7fa;
-        font-weight: 600;
-      }
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  .reply-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .reply-author {
+    font-size: 14px;
+    font-weight: 500;
+    color: #303133;
+  }
+
+  .reply-time {
+    font-size: 12px;
+    color: #909399;
+  }
+
+  .reply-text {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.5;
+
+    .reply-to {
+      color: #409EFF;
+      font-weight: 500;
     }
   }
 }
