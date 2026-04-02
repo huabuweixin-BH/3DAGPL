@@ -37,6 +37,7 @@ public class BlogArticleController extends BaseController
     /**
      * 查询文章列表
      */
+    @PreAuthorize("@ss.hasPermi('Algorithm:formu:list')")
     @GetMapping("/list")
     public TableDataInfo list(BlogArticle blogArticle)
     {
