@@ -42,3 +42,21 @@ export function delArticle(id) {
     method: 'delete'
   })
 }
+
+// 上架文章
+export function publishArticle(ids) {
+  return request({
+    url: '/system/article/publish',
+    method: 'put',
+    data: ids
+  })
+}
+
+// 下架文章
+export function rejectArticle(ids) {
+  return request({
+    url: '/system/article/reject',
+    method: 'put',
+    data: ids
+  })
+}

@@ -58,4 +58,20 @@ public interface IBlogArticleService
      * @return 结果
      */
     public int deleteBlogArticleById(Long id);
+
+    /**
+     * 上架文章（将审核状态更改为已发布）
+     *
+     * @param ids 需要上架的文章主键集合
+     * @return 结果
+     */
+    public int publishBlogArticleByIds(Long[] ids);
+
+    /**
+     * 下架文章（将审核状态更改为被拒绝）
+     *
+     * @param ids 需要下架的文章主键集合
+     * @return 结果
+     */
+    public int rejectBlogArticleByIds(Long[] ids);
 }

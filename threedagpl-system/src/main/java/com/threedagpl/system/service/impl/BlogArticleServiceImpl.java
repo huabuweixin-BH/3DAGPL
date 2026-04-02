@@ -93,4 +93,28 @@ public class BlogArticleServiceImpl implements IBlogArticleService
     {
         return blogArticleMapper.deleteBlogArticleById(id);
     }
+
+    /**
+     * 上架文章（将审核状态更改为已发布）
+     *
+     * @param ids 需要上架的文章主键集合
+     * @return 结果
+     */
+    @Override
+    public int publishBlogArticleByIds(Long[] ids)
+    {
+        return blogArticleMapper.updateStatusByIds(ids, "1");
+    }
+
+    /**
+     * 下架文章（将审核状态更改为被拒绝）
+     *
+     * @param ids 需要下架的文章主键集合
+     * @return 结果
+     */
+    @Override
+    public int rejectBlogArticleByIds(Long[] ids)
+    {
+        return blogArticleMapper.updateStatusByIds(ids, "2");
+    }
 }

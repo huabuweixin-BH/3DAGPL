@@ -115,4 +115,13 @@
             #{id}
         </foreach>
     </delete>
+
+    <update id="updateStatusByIds">
+        update blog_article
+        set status = #{param2}, update_time = now()
+        where id in
+        <foreach item="id" collection="param1" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
 </mapper>

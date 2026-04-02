@@ -101,4 +101,26 @@ public class BlogArticleController extends BaseController
     {
         return toAjax(blogArticleService.deleteBlogArticleByIds(ids));
     }
+
+    /**
+     * 上架文章
+     */
+    @PreAuthorize("@ss.hasPermi('system:article:edit')")
+    @Log(title = "文章", businessType = BusinessType.UPDATE)
+    @PutMapping("/publish")
+    public AjaxResult publish(@RequestBody Long[] ids)
+    {
+        return toAjax(blogArticleService.publishBlogArticleByIds(ids));
+    }
+
+    /**
+     * 下架文章
+     */
+    @PreAuthorize("@ss.hasPermi('system:article:edit')")
+    @Log(title = "文章", businessType = BusinessType.UPDATE)
+    @PutMapping("/reject")
+    public AjaxResult reject(@RequestBody Long[] ids)
+    {
+        return toAjax(blogArticleService.rejectBlogArticleByIds(ids));
+    }
 }

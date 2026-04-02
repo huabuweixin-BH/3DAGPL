@@ -58,4 +58,13 @@ public interface BlogArticleMapper
      * @return 结果
      */
     public int deleteBlogArticleByIds(Long[] ids);
+
+    /**
+     * 批量更新文章状态
+     *
+     * @param ids 需要更新的数据主键集合
+     * @param status 新的状态值
+     * @return 结果
+     */
+    public int updateStatusByIds(Long[] ids, String status);
 }

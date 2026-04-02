@@ -31,6 +31,28 @@
       </el-col>
       <el-col :span="1.5">
         <el-button
+          type="success"
+          plain
+          icon="el-icon-top"
+          size="mini"
+          :disabled="multiple"
+          @click="handlePublish"
+          v-hasPermi="['system:article:edit']"
+        >上架</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="warning"
+          plain
+          icon="el-icon-bottom"
+          size="mini"
+          :disabled="multiple"
+          @click="handleReject"
+          v-hasPermi="['system:article:edit']"
+        >下架</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
           type="danger"
           plain
           icon="el-icon-delete"
@@ -168,7 +190,7 @@
 </template>
 
 <script>
-import { listArticle, getArticle, delArticle, addArticle, updateArticle } from "@/api/system/article";
+import { listArticle, getArticle, delArticle, addArticle, updateArticle, publishArticle, rejectArticle } from "@/api/system/article";
 import "@wangeditor/editor/dist/css/style.css";
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue';
 
@@ -485,6 +507,26 @@ export default {
       }).then(() => {
         this.getList();
         this.$modal.msgSuccess("删除成功");
+      }).catch(() => {});
+    },
+    /** 上架按钮操作 */
+    handlePublish() {
+      const ids = this.ids;
+      this.$modal.confirm('是否确认上架选中的 ' + ids.length + ' 篇文章？').then(() => {
+        return publishArticle(ids);
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("上架成功");
+      }).catch(() => {});
+    },
+    /** 下架按钮操作 */
+    handleReject() {
+      const ids = this.ids;
+      this.$modal.confirm('是否确认下架选中的 ' + ids.length + ' 篇文章？').then(() => {
+        return rejectArticle(ids);
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("下架成功");
       }).catch(() => {});
     },
     /** 导出按钮操作 */
