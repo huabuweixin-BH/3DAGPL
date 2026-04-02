@@ -30,7 +30,10 @@
             <if test="articleId != null"> and article_id = #{articleId}</if>
             <if test="userId != null"> and user_id = #{userId}</if>
             <if test="parentId != null"> and parent_id = #{parentId}</if>
+            <if test="replyToUserId != null"> and reply_to_user_id = #{replyToUserId}</if>
+            <if test="replyToUserName != null and replyToUserName != ''"> and reply_to_user_name = #{replyToUserName}</if>
             <if test="status != null and status != ''"> and status = #{status}</if>
+            <if test="content != null and content != ''"> and content like concat('%', #{content}, '%')</if>
         </where>
         order by create_time desc
     </select>

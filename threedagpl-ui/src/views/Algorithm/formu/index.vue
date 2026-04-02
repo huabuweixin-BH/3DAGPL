@@ -215,7 +215,7 @@
 
 <script>
 import { listArticle } from "@/api/system/article";
-import { listComments, addComment, delComment } from "@/api/system/comment";
+import { listArticleComments, addComment, delComment } from "@/api/system/comment";
 import { getToken } from '@/utils/auth';
 
 export default {
@@ -312,7 +312,7 @@ export default {
     /** 加载评论 */
     loadComments(articleId) {
       this.comments = [];
-      listComments(articleId).then(response => {
+      listArticleComments(articleId).then(response => {
         const allComments = response.data || [];
         // 将评论按 parentId 分组，构建层级结构
         const mainComments = allComments.filter(c => !c.parentId || c.parentId === 0);
