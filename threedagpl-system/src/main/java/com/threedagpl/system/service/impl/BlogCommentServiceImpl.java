@@ -55,7 +55,14 @@ public class BlogCommentServiceImpl implements IBlogCommentService
     @Override
     public List<BlogComment> selectCommentsByArticleId(Long articleId)
     {
-        return blogCommentMapper.selectCommentsByArticleId(articleId);
+        List<BlogComment> comments = blogCommentMapper.selectCommentsByArticleId(articleId);
+        // 为每个评论设置 userName（如果后端没有存储，使用 createBy 代替）
+        comments.forEach(comment -> {
+            if (comment.getUserName() == null || comment.getUserName().isEmpty()) {
+                comment.setUserName(comment.getCreateBy());
+            }
+        });
+        return comments;
     }
 
     /**

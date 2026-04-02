@@ -141,9 +141,9 @@
               ></el-input>
               <div class="comment-form-actions">
                 <el-button type="primary" @click="handlePostComment" :loading="postingComment">
-                  发表评论
+                  {{ newComment.parentId ? '发表回复' : '发表评论' }}
                 </el-button>
-                <el-button @click="() => newComment.content = ''">取消</el-button>
+                <el-button @click="handleCancelComment">取消</el-button>
               </div>
             </div>
 
@@ -317,14 +317,15 @@ export default {
         // 将评论按 parentId 分组，构建层级结构
         const mainComments = allComments.filter(c => !c.parentId || c.parentId === 0);
         const replies = allComments.filter(c => c.parentId && c.parentId > 0);
-        
+
         // 将回复关联到主评论
         mainComments.forEach(main => {
           main.replies = replies.filter(r => r.parentId === main.id);
         });
-        
+
         this.comments = mainComments;
-      }).catch(() => {
+      }).catch((error) => {
+        console.error('加载评论失败:', error);
         this.comments = [];
       });
     },
@@ -348,9 +349,16 @@ export default {
 
       addComment(submitData).then(response => {
         this.$message.success('评论成功');
+        const articleId = this.newComment.articleId;
         // 重新加载评论
-        this.loadComments(this.newComment.articleId);
-        this.newComment = { content: '', articleId: null, parentId: null, replyToUserId: null };
+        this.loadComments(articleId);
+        // 只清空内容和回复信息，保留 articleId
+        this.newComment = { 
+          content: '', 
+          articleId: articleId, 
+          parentId: null, 
+          replyToUserId: null 
+        };
         this.postingComment = false;
       }).catch(error => {
         this.$message.error('评论失败：' + (error.message || '未知错误'));
@@ -362,14 +370,43 @@ export default {
     handleReplyComment(comment) {
       this.newComment.parentId = comment.id;
       this.newComment.replyToUserId = comment.userId;
-      this.$message.info(`回复 @${comment.userName || '用户'}`);
+      // 显示回复提示，使用通知而不是消息提示
+      this.$notify.info({
+        title: '提示',
+        message: `正在回复 @${comment.userName || '用户'}`,
+        duration: 2000,
+        offset: 100
+      });
       // 滚动到评论框
       this.$nextTick(() => {
         const commentInput = document.querySelector('.comment-input textarea');
         if (commentInput) {
+          commentInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
           commentInput.focus();
         }
       });
+    },
+
+    /** 关闭对话框 */
+    handleCloseDialog() {
+      this.$confirm('确定要关闭文章详情吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.dialogVisible = false;
+        this.currentArticle = null;
+        this.comments = [];
+        this.newComment = { content: '', articleId: null, parentId: null, replyToUserId: null };
+      }).catch(() => {});
+    },
+
+    /** 取消回复 */
+    handleCancelComment() {
+      this.newComment.content = '';
+      this.newComment.parentId = null;
+      this.newComment.replyToUserId = null;
+      this.$message.info('已取消回复');
     },
 
     /** 删除评论 */
