@@ -64,7 +64,8 @@ public interface BlogArticleMapper
      *
      * @param ids 需要更新的数据主键集合
      * @param status 新的状态值
+     * @param updateBy 更新者
      * @return 结果
      */
-    public int updateStatusByIds(Long[] ids, String status);
+    public int updateStatusByIds(Long[] ids, String status, String updateBy);
 }

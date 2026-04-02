@@ -37,7 +37,6 @@ public class BlogArticleController extends BaseController
     /**
      * 查询文章列表
      */
-    @PreAuthorize("@ss.hasPermi('system:article:list')")
     @GetMapping("/list")
     public TableDataInfo list(BlogArticle blogArticle)
     {
@@ -72,7 +71,6 @@ public class BlogArticleController extends BaseController
     /**
      * 新增文章
      */
-    @PreAuthorize("@ss.hasPermi('system:article:add')")
     @Log(title = "文章", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody BlogArticle blogArticle)

@@ -37,6 +37,7 @@
             <if test="status != null  and status != ''"> and status = #{status}</if>
             <if test="isTop != null  and isTop != ''"> and is_top = #{isTop}</if>
             <if test="isVisible != null  and isVisible != ''"> and is_visible = #{isVisible}</if>
+            <if test="createBy != null  and createBy != ''"> and create_by = #{createBy}</if>
             <if test="embedding != null  and embedding != ''"> and embedding = #{embedding}</if>
         </where>
     </select>
@@ -118,7 +119,7 @@
 
     <update id="updateStatusByIds">
         update blog_article
-        set status = #{param2}, update_time = now()
+        set status = #{param2}, update_by = #{param3}, update_time = now()
         where id in
         <foreach item="id" collection="param1" open="(" separator="," close=")">
             #{id}

@@ -77,7 +77,8 @@
 
     <el-table v-loading="loading" :data="articleList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="用户 id" align="center" prop="id" width="80" />
+      <el-table-column label="文章 ID" align="center" prop="id" width="80" />
+      <el-table-column label="创建者" align="center" prop="createBy" width="120" />
       <el-table-column label="标题" align="center" prop="title" :show-overflow-tooltip="true" width="150" />
       <el-table-column label="摘要" align="center" prop="summary" :show-overflow-tooltip="true" width="200">
         <template slot-scope="scope">

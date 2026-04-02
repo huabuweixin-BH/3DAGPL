@@ -2,6 +2,7 @@ package com.threedagpl.system.service.impl;
 
 import java.util.List;
 import com.threedagpl.common.utils.DateUtils;
+import com.threedagpl.common.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.threedagpl.system.mapper.BlogArticleMapper;
@@ -53,6 +54,7 @@ public class BlogArticleServiceImpl implements IBlogArticleService
     @Override
     public int insertBlogArticle(BlogArticle blogArticle)
     {
+        blogArticle.setCreateBy(SecurityUtils.getUsername());
         blogArticle.setCreateTime(DateUtils.getNowDate());
         return blogArticleMapper.insertBlogArticle(blogArticle);
     }
@@ -66,6 +68,7 @@ public class BlogArticleServiceImpl implements IBlogArticleService
     @Override
     public int updateBlogArticle(BlogArticle blogArticle)
     {
+        blogArticle.setUpdateBy(SecurityUtils.getUsername());
         blogArticle.setUpdateTime(DateUtils.getNowDate());
         return blogArticleMapper.updateBlogArticle(blogArticle);
     }
@@ -103,7 +106,7 @@ public class BlogArticleServiceImpl implements IBlogArticleService
     @Override
     public int publishBlogArticleByIds(Long[] ids)
     {
-        return blogArticleMapper.updateStatusByIds(ids, "1");
+        return blogArticleMapper.updateStatusByIds(ids, "1", SecurityUtils.getUsername());
     }
 
     /**
@@ -115,6 +118,6 @@ public class BlogArticleServiceImpl implements IBlogArticleService
     @Override
     public int rejectBlogArticleByIds(Long[] ids)
     {
-        return blogArticleMapper.updateStatusByIds(ids, "2");
+        return blogArticleMapper.updateStatusByIds(ids, "2", SecurityUtils.getUsername());
     }
 }

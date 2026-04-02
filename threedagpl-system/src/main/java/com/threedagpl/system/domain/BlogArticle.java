@@ -15,7 +15,7 @@ public class BlogArticle extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
-    /** 用户id */
+    /** 文章 ID */
     private Long id;
 
     /** 标题 */
@@ -30,16 +30,16 @@ public class BlogArticle extends BaseEntity
     @Excel(name = "封面图地址")
     private String coverUrl;
 
-    /** 富文本HTML */
-    @Excel(name = "富文本HTML")
+    /** 富文本 HTML */
+    @Excel(name = "富文本 HTML")
     private String contentHtml;
 
-    /** 纯文本内容（用于RAG检索） */
-    @Excel(name = "纯文本内容", readConverterExp = "用=于RAG检索")
+    /** 纯文本内容（用于 RAG 检索） */
+    @Excel(name = "纯文本内容", readConverterExp = "用=于 RAG 检索")
     private String contentText;
 
-    /** 审核状态（0待审核 1已发布 2被拒绝） */
-    @Excel(name = "审核状态", readConverterExp = "0=待审核,1=已发布,2=被拒绝")
+    /** 审核状态（0 待审核 1 已发布 2 被拒绝） */
+    @Excel(name = "审核状态", readConverterExp = "0=待审核，1=已发布，2=被拒绝")
     private String status;
 
     /** 是否置顶 */
