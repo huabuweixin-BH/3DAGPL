@@ -22,10 +22,7 @@ export function addArticle(data) {
   return request({
     url: '/system/article',
     method: 'post',
-    data: data,
-    headers: {
-      'Content-Type': 'application/json;charset=utf-8'
-    }
+    data: data
   })
 }
 
@@ -34,10 +31,7 @@ export function updateArticle(data) {
   return request({
     url: '/system/article',
     method: 'put',
-    data: data,
-    headers: {
-      'Content-Type': 'application/json;charset=utf-8'
-    }
+    data: data
   })
 }
 

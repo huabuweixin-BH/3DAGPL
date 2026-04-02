@@ -55,18 +55,54 @@
 
     <el-table v-loading="loading" :data="articleList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="用户id" align="center" prop="id" />
-      <el-table-column label="标题" align="center" prop="title" />
-      <el-table-column label="摘要" align="center" prop="summary" />
-      <el-table-column label="封面图地址" align="center" prop="coverUrl" />
-      <el-table-column label="富文本HTML" align="center" prop="contentHtml" />
-      <el-table-column label="纯文本内容" align="center" prop="contentText" />
-      <el-table-column label="审核状态" align="center" prop="status" />
-      <el-table-column label="是否置顶" align="center" prop="isTop" />
-      <el-table-column label="是否公开" align="center" prop="isVisible" />
-      <el-table-column label="备注" align="center" prop="remark" />
-      <el-table-column label="文章特征向量" align="center" prop="embedding" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="用户 id" align="center" prop="id" width="80" />
+      <el-table-column label="标题" align="center" prop="title" :show-overflow-tooltip="true" width="150" />
+      <el-table-column label="摘要" align="center" prop="summary" :show-overflow-tooltip="true" width="200">
+        <template slot-scope="scope">
+          <span>{{ scope.row.summary ? (scope.row.summary.length > 50 ? scope.row.summary.substring(0, 50) + '...' : scope.row.summary) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="封面图地址" align="center" prop="coverUrl" :show-overflow-tooltip="true" width="200">
+        <template slot-scope="scope">
+          <span>{{ scope.row.coverUrl ? (scope.row.coverUrl.length > 30 ? scope.row.coverUrl.substring(0, 30) + '...' : scope.row.coverUrl) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="富文本 HTML" align="center" prop="contentHtml" :show-overflow-tooltip="true" width="200">
+        <template slot-scope="scope">
+          <span>{{ scope.row.contentHtml ? (scope.row.contentHtml.length > 50 ? scope.row.contentHtml.substring(0, 50) + '...' : scope.row.contentHtml) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="纯文本内容" align="center" prop="contentText" :show-overflow-tooltip="true" width="200">
+        <template slot-scope="scope">
+          <span>{{ scope.row.contentText ? (scope.row.contentText.length > 50 ? scope.row.contentText.substring(0, 50) + '...' : scope.row.contentText) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="审核状态" align="center" prop="status" width="100">
+        <template slot-scope="scope">
+          <el-tag :type="getStatusTagType(scope.row.status)" size="small">{{ formatStatus(scope.row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="是否置顶" align="center" prop="isTop" width="80">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isTop === '1' || scope.row.isTop === true ? 'danger' : 'info'" size="small">{{ scope.row.isTop === '1' || scope.row.isTop === true ? '是' : '否' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="是否公开" align="center" prop="isVisible" width="80">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.isVisible === '1' || scope.row.isVisible === true ? 'success' : 'info'" size="small">{{ scope.row.isVisible === '1' || scope.row.isVisible === true ? '是' : '否' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="备注" align="center" prop="remark" :show-overflow-tooltip="true" width="150">
+        <template slot-scope="scope">
+          <span>{{ scope.row.remark ? (scope.row.remark.length > 30 ? scope.row.remark.substring(0, 30) + '...' : scope.row.remark) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="文章特征向量" align="center" prop="embedding" :show-overflow-tooltip="true" width="150">
+        <template slot-scope="scope">
+          <span>{{ formatEmbedding(scope.row.embedding) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="150" fixed="right">
         <template slot-scope="scope">
           <el-button
             size="mini"
@@ -365,18 +401,21 @@ export default {
           if (this.form.status !== null && this.form.status !== undefined && this.form.status !== '') {
             submitData.status = String(this.form.status);
           }
-          // 布尔值字段：保持为 JavaScript boolean 类型，不要转为字符串
-          if (this.form.isTop !== null && this.form.isTop !== undefined) {
-            submitData.isTop = Boolean(this.form.isTop);
+          // 布尔值字段：正确处理字符串 "true"/"false" 和布尔值
+          if (this.form.isTop !== null && this.form.isTop !== undefined && this.form.isTop !== '') {
+            submitData.isTop = this.form.isTop === true || this.form.isTop === 'true' ? '1' : '0';
           }
-          if (this.form.isVisible !== null && this.form.isVisible !== undefined) {
-            submitData.isVisible = Boolean(this.form.isVisible);
+          if (this.form.isVisible !== null && this.form.isVisible !== undefined && this.form.isVisible !== '') {
+            submitData.isVisible = this.form.isVisible === true || this.form.isVisible === 'true' ? '1' : '0';
           }
           if (this.form.remark) {
             submitData.remark = String(this.form.remark).trim();
           }
+          // embedding 字段：如果是对象则序列化，否则直接使用
           if (this.form.embedding !== null && this.form.embedding !== undefined && this.form.embedding !== '') {
-            submitData.embedding = JSON.stringify(this.form.embedding);
+            submitData.embedding = typeof this.form.embedding === 'object' 
+              ? JSON.stringify(this.form.embedding) 
+              : String(this.form.embedding);
           }
           
           // 调试日志：打印要提交的数据对象
@@ -384,7 +423,7 @@ export default {
           console.log('提交数据的键:', Object.keys(submitData));
           console.log('contentHtml 长度:', submitData.contentHtml.length);
           console.log('contentText 长度:', submitData.contentText.length);
-          
+
           // 尝试序列化数据，捕获可能的错误
           let serializedData;
           try {
@@ -392,7 +431,7 @@ export default {
             console.log('✅ 前端序列化成功');
             console.log('📝 序列化后的数据:', serializedData);
             console.log('📊 数据大小:', serializedData.length, '字节');
-            
+
             // 尝试反序列化验证数据完整性
             const testData = JSON.parse(serializedData);
             console.log('✅ 前端反序列化验证通过');
@@ -405,16 +444,12 @@ export default {
             this.$modal.msgError('数据格式化失败，请检查输入内容');
             return;
           }
-          
+
           if (this.form.id != null) {
-            // 手动序列化并设置 Content-Type，禁用防重复提交
-            const requestData = JSON.stringify(submitData);
-            console.log('发送的原始数据:', requestData);
-            
+            // 禁用防重复提交检查
             updateArticle(submitData, {
               headers: {
-                'Content-Type': 'application/json;charset=utf-8',
-                'repeatSubmit': false  // 禁用防重复提交检查
+                'repeatSubmit': false
               }
             }).then(response => {
               this.$modal.msgSuccess("修改成功");
@@ -422,18 +457,13 @@ export default {
               this.getList();
             }).catch(error => {
               console.error('更新失败:', error);
-              console.error('请求数据:', requestData);
               this.$modal.msgError('保存失败：' + (error.message || '未知错误'));
             });
           } else {
-            // 手动序列化并设置 Content-Type，禁用防重复提交
-            const requestData = JSON.stringify(submitData);
-            console.log('发送的原始数据:', requestData);
-            
+            // 禁用防重复提交检查
             addArticle(submitData, {
               headers: {
-                'Content-Type': 'application/json;charset=utf-8',
-                'repeatSubmit': false  // 禁用防重复提交检查
+                'repeatSubmit': false
               }
             }).then(response => {
               this.$modal.msgSuccess("新增成功");
@@ -441,7 +471,6 @@ export default {
               this.getList();
             }).catch(error => {
               console.error('新增失败:', error);
-              console.error('请求数据:', requestData);
               this.$modal.msgError('保存失败：' + (error.message || '未知错误'));
             });
           }
@@ -463,6 +492,58 @@ export default {
       this.download('system/article/export', {
         ...this.queryParams
       }, `article_${new Date().getTime()}.xlsx`)
+    },
+    /** 格式化状态显示 */
+    formatStatus(status) {
+      if (status === null || status === undefined || status === '') {
+        return '未知';
+      }
+      const statusMap = {
+        '0': '待审核',
+        '1': '已通过',
+        '2': '已拒绝',
+        '3': '草稿'
+      };
+      return statusMap[String(status)] || status;
+    },
+    /** 获取状态标签类型 */
+    getStatusTagType(status) {
+      const typeMap = {
+        '0': 'warning',
+        '1': 'success',
+        '2': 'danger',
+        '3': 'info'
+      };
+      return typeMap[String(status)] || 'info';
+    },
+    /** 格式化特征向量显示 */
+    formatEmbedding(embedding) {
+      if (embedding === null || embedding === undefined || embedding === '') {
+        return '-';
+      }
+      try {
+        // 如果是字符串，尝试解析为数组
+        const arr = typeof embedding === 'string' ? JSON.parse(embedding) : embedding;
+        if (Array.isArray(arr)) {
+          if (arr.length === 0) {
+            return '[]';
+          } else if (arr.length <= 5) {
+            // 短数组直接显示
+            return '[' + arr.map(item => typeof item === 'number' ? item.toFixed(2) : item).join(', ') + ']';
+          } else {
+            // 长数组只显示前几个元素和维度信息
+            const preview = arr.slice(0, 3).map(item => typeof item === 'number' ? item.toFixed(2) : item).join(', ');
+            return `[${preview}, ... ${arr.length}维]`;
+          }
+        }
+        // 非数组类型，转换为字符串并截断
+        const str = String(embedding);
+        return str.length > 30 ? str.substring(0, 30) + '...' : str;
+      } catch (e) {
+        // 解析失败时直接显示字符串
+        const str = String(embedding);
+        return str.length > 30 ? str.substring(0, 30) + '...' : str;
+      }
     }
   }
 };

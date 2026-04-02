@@ -109,6 +109,22 @@ public class GlobalExceptionHandler
     {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',发生系统异常.", requestURI, e);
+        
+        // 特别处理 JSON 解析错误
+        if (e.getMessage() != null && e.getMessage().contains("JSON parse error")) {
+            log.error("JSON 解析错误详情: {}", e.getMessage());
+            // 获取请求体内容（用于调试）
+            try {
+                // 尝试从请求属性中获取请求体（如果有的话）
+                Object requestBody = request.getAttribute("requestBody");
+                if (requestBody != null) {
+                    log.error("请求体内容：{}", requestBody.toString());
+                }
+            } catch (Exception ex) {
+                log.warn("无法获取请求体内容");
+            }
+        }
+        
         return AjaxResult.error(e.getMessage());
     }
 
