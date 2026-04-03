@@ -55,7 +55,7 @@
               </div>
               <div class="message-content">
                 <div class="message-text">
-                  <i class="el-icon-loading"></i> 正在思考...
+                  <i class="el-icon-loading"></i> 正在思考,请稍候...
                 </div>
               </div>
             </div>
@@ -123,6 +123,8 @@ export default {
         useRag: true,
         topK: 5
       },
+      // Markdown缓存
+      markdownCache: new Map(),
       // Markdown解析器
       md: new MarkdownIt({
         html: true,
@@ -149,7 +151,14 @@ export default {
     /** 渲染Markdown */
     renderMarkdown(text) {
       if (!text) return '';
-      return this.md.render(text);
+      // 检查缓存
+      if (this.markdownCache.has(text)) {
+        return this.markdownCache.get(text);
+      }
+      // 渲染并缓存
+      const rendered = this.md.render(text);
+      this.markdownCache.set(text, rendered);
+      return rendered;
     },
 
     /** 获取对话历史列表 */
@@ -202,27 +211,45 @@ export default {
         useRag: this.queryParams.useRag,
         topK: this.queryParams.topK
       }).then(response => {
+        console.log('AI响应成功');
         const data = response.data;
+        console.log('AI答案数据:', data);
+        
+        // 确保数据存在
+        if (!data || !data.answer) {
+          throw new Error('响应数据格式错误');
+        }
+        
+        // 先设置 loading 为 false,再添加消息
+        this.loading = false;
+        
         this.messageList.push({
           type: "ai",
           content: data.answer,
           knowledgeContext: data.knowledgeContext
         });
-        this.loading = false;
         
-        // 刷新历史列表
-        this.getHistoryList();
-        
+        console.log('AI回答已添加到列表, loading状态:', this.loading);
+
         this.$nextTick(() => {
           this.scrollToBottom();
         });
+
+        // 暂时注释,测试是否导致无限循环
+        // this.getHistoryList();
       }).catch(error => {
-        this.messageList.push({
-          type: "ai",
-          content: "抱歉,请求失败,请稍后重试。"
-        });
+        console.error('AI问答失败:', error);
+        
+        // 先设置 loading 为 false
         this.loading = false;
         
+        this.messageList.push({
+          type: "ai",
+          content: "抱歉,请求失败,请稍后重试。错误信息:" + (error.message || "未知错误")
+        });
+        
+        console.log('错误消息已添加, loading状态:', this.loading);
+
         this.$nextTick(() => {
           this.scrollToBottom();
         });
