@@ -50,8 +50,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="userId != null">#{userId},</if>
             <if test="question != null and question != ''">#{question},</if>
             <if test="answer != null and answer != ''">#{answer},</if>
-            CURRENT_TIMESTAMP
+            now()
          </trim>
+        RETURNING id
     </insert>
 
     <delete id="deleteAiChatHistoryById" parameterType="Long">

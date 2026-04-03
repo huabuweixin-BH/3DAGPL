@@ -26,13 +26,13 @@ CREATE TABLE IF NOT EXISTS ai_embedding (
     id BIGSERIAL PRIMARY KEY,
     document_id BIGINT,
     content TEXT,
-    embedding VECTOR(1536)
+    embedding VECTOR(768)  -- 768维,匹配nomic-embed-text模型
 );
 
 COMMENT ON COLUMN ai_embedding.id IS '嵌入ID';
 COMMENT ON COLUMN ai_embedding.document_id IS '文档ID';
 COMMENT ON COLUMN ai_embedding.content IS '嵌入内容';
-COMMENT ON COLUMN ai_embedding.embedding IS '向量数据';
+COMMENT ON COLUMN ai_embedding.embedding IS '向量数据(768维)';
 
 -- 创建向量索引
 CREATE INDEX IF NOT EXISTS idx_embedding_vector

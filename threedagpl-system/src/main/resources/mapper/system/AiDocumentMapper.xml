@@ -39,17 +39,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="title != null and title != ''">title,</if>
             <if test="content != null and content != ''">content,</if>
-            <if test="createBy != null and createBy != ''">create_by,</if>
-            <if test="remark != null">remark,</if>
             create_time
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="title != null and title != ''">#{title},</if>
             <if test="content != null and content != ''">#{content},</if>
-            <if test="createBy != null and createBy != ''">#{createBy},</if>
-            <if test="remark != null">#{remark},</if>
-            sysdate()
+            now()
          </trim>
+        RETURNING id
     </insert>
 
     <update id="updateAiDocument" parameterType="AiDocument">
