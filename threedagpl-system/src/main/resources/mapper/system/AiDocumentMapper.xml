@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.threedagpl.system.mapper.AiDocumentMapper">
+    
+    <resultMap type="AiDocument" id="AiDocumentResult">
+        <result property="id"       column="id"       />
+        <result property="title"    column="title"    />
+        <result property="content"  column="content"  />
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark"   column="remark"   />
+    </resultMap>
+
+    <sql id="selectAiDocumentVo">
+        select id, title, content, create_by, create_time, update_by, update_time, remark 
+        from ai_document
+    </sql>
+
+    <select id="selectAiDocumentList" parameterType="AiDocument" resultMap="AiDocumentResult">
+        <include refid="selectAiDocumentVo"/>
+        <where>  
+            <if test="title != null  and title != ''"> and title like concat('%', #{title}, '%')</if>
+            <if test="content != null  and content != ''"> and content like concat('%', #{content}, '%')</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectAiDocumentById" parameterType="Long" resultMap="AiDocumentResult">
+        <include refid="selectAiDocumentVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertAiDocument" parameterType="AiDocument" useGeneratedKeys="true" keyProperty="id">
+        insert into ai_document
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="title != null and title != ''">title,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="remark != null">remark,</if>
+            create_time
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="remark != null">#{remark},</if>
+            sysdate()
+         </trim>
+    </insert>
+
+    <update id="updateAiDocument" parameterType="AiDocument">
+        update ai_document
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            update_time = sysdate()
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAiDocumentById" parameterType="Long">
+        delete from ai_document where id = #{id}
+    </delete>
+
+    <delete id="deleteAiDocumentByIds" parameterType="Long">
+        delete from ai_document where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

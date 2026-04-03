@@ -88,11 +88,25 @@ spring:
           max-active: 8
           # #连接池最大阻塞等待时间（使用负值表示没有限制）
           max-wait: -1ms
+      # 如果Redis未启动,可以临时禁用:
+      # 将下面的enabled设置为false可以禁用Redis
+      enabled: true
   ai:
     ollama:
       base-url: http://127.0.0.1:11434
       chat:
-          model: deepseek-r1:8b
+          options:
+            model: deepseek-r1:8b
+            temperature: 0.7
+            num_predict: 2048
+      embedding:
+          options:
+            model: nomic-embed-text
+
+# AI RAG 配置
+ai:
+  rag:
+    topk: 5
 
 
 # token 配置

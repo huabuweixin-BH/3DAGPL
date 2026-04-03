@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.threedagpl.system.mapper.AiEmbeddingMapper">
+    
+    <resultMap type="AiEmbedding" id="AiEmbeddingResult">
+        <result property="id"         column="id"         />
+        <result property="documentId" column="document_id"/>
+        <result property="content"    column="content"    />
+        <result property="embedding"  column="embedding"  typeHandler="com.threedagpl.system.handler.PGvectorTypeHandler"/>
+    </resultMap>
+
+    <sql id="selectAiEmbeddingVo">
+        select id, document_id, content, embedding 
+        from ai_embedding
+    </sql>
+
+    <select id="selectAiEmbeddingList" parameterType="AiEmbedding" resultMap="AiEmbeddingResult">
+        <include refid="selectAiEmbeddingVo"/>
+        <where>  
+            <if test="documentId != null "> and document_id = #{documentId}</if>
+            <if test="content != null  and content != ''"> and content like concat('%', #{content}, '%')</if>
+        </where>
+        order by id desc
+    </select>
+    
+    <select id="selectAiEmbeddingById" parameterType="Long" resultMap="AiEmbeddingResult">
+        <include refid="selectAiEmbeddingVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertAiEmbedding" parameterType="AiEmbedding" useGeneratedKeys="true" keyProperty="id">
+        insert into ai_embedding
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="documentId != null">document_id,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="embedding != null">embedding,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="documentId != null">#{documentId},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="embedding != null">#{embedding,typeHandler=com.threedagpl.system.handler.PGvectorTypeHandler},</if>
+         </trim>
+    </insert>
+
+    <insert id="batchInsertAiEmbedding" parameterType="java.util.List">
+        insert into ai_embedding (document_id, content, embedding) values
+        <foreach collection="embeddings" item="embedding" separator=",">
+            (#{embedding.documentId}, #{embedding.content}, #{embedding.embedding,typeHandler=com.threedagpl.system.handler.PGvectorTypeHandler})
+        </foreach>
+    </insert>
+
+    <update id="updateAiEmbedding" parameterType="AiEmbedding">
+        update ai_embedding
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="documentId != null">document_id = #{documentId},</if>
+            <if test="content != null and content != ''">content = #{content},</if>
+            <if test="embedding != null">embedding = #{embedding,typeHandler=com.threedagpl.system.handler.PGvectorTypeHandler},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAiEmbeddingById" parameterType="Long">
+        delete from ai_embedding where id = #{id}
+    </delete>
+
+    <delete id="deleteAiEmbeddingByIds" parameterType="Long">
+        delete from ai_embedding where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteAiEmbeddingByDocumentId" parameterType="Long">
+        delete from ai_embedding where document_id = #{documentId}
+    </delete>
+
+    <!-- 向量相似度搜索 -->
+    <select id="searchSimilarEmbeddings" resultMap="AiEmbeddingResult">
+        SELECT id, document_id, content, embedding
+        FROM ai_embedding
+        ORDER BY embedding &lt;-&gt; #{embedding}::vector
+        LIMIT #{topK}
+    </select>
+</mapper>
