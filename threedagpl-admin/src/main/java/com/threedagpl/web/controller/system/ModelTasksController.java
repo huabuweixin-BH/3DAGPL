@@ -96,7 +96,7 @@ public class ModelTasksController extends BaseController
     @PostMapping("/model")
     public AjaxResult submitModel(@RequestBody ModelSimplifyRequest request)
     {
-        System.out.println(request);
+        //System.out.println(request);
         // 验证必需参数
         if (request.getInput() == null || request.getInput().trim().isEmpty()) {
             return error("输入文件路径不能为空");

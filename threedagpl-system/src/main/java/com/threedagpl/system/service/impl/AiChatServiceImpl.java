@@ -72,31 +72,57 @@ public class AiChatServiceImpl implements IAiChatService {
 
             // 判断是否使用RAG
             if (Boolean.TRUE.equals(request.getUseRag())) {
+                log.info("=== 开始RAG问答流程 ===");
+                log.info("用户问题: {}", request.getQuestion());
+                
                 // RAG模式:检索相关知识
                 int topK = request.getTopK() != null ? request.getTopK() : defaultTopK;
-                
+                log.info("向量检索TopK: {}", topK);
+
                 // 1. 生成问题向量
+                log.info("步骤1: 生成问题向量...");
                 float[] questionEmbedding = generateEmbedding(request.getQuestion());
-                
+                log.info("问题向量生成完成,向量维度: {}", questionEmbedding.length);
+
                 // 2. 向量相似度搜索
+                log.info("步骤2: 执行向量相似度搜索...");
                 List<AiEmbedding> similarEmbeddings = aiEmbeddingService.searchSimilarEmbeddings(
                     questionEmbedding, topK);
-                
+                log.info("向量检索完成,找到 {} 条相似记录", similarEmbeddings != null ? similarEmbeddings.size() : 0);
+
                 // 3. 构建知识上下文
                 if (similarEmbeddings != null && !similarEmbeddings.isEmpty()) {
                     knowledgeContext = similarEmbeddings.stream()
                         .map(AiEmbedding::getContent)
                         .collect(Collectors.joining("\n\n"));
+                    log.info("知识上下文构建完成,总长度: {} 字符", knowledgeContext.length());
+                    log.debug("知识上下文内容:\n{}", knowledgeContext);
+                } else {
+                    log.warn("未找到相关知识,将使用LLM直接回答");
                 }
-                
+
                 // 4. 构建增强Prompt
+                log.info("步骤3: 构建增强Prompt...");
                 String enhancedPrompt = buildRagPrompt(request.getQuestion(), knowledgeContext);
-                
+                log.debug("增强Prompt内容:\n{}", enhancedPrompt);
+
                 // 5. 调用LLM生成答案
+                log.info("步骤4: 调用LLM生成答案...");
                 answer = callLLM(enhancedPrompt);
+                log.info("LLM调用完成,答案长度: {} 字符", answer.length());
+                log.debug("LLM返回的答案:\n{}", answer);
+                
+                log.info("=== RAG问答流程完成 ===");
             } else {
+                log.info("=== 直接LLM问答模式 ===");
+                log.info("用户问题: {}", request.getQuestion());
+                
                 // 非RAG模式:直接调用LLM
                 answer = callLLM(request.getQuestion());
+                
+                log.info("LLM调用完成,答案长度: {} 字符", answer.length());
+                log.debug("LLM返回的答案:\n{}", answer);
+                log.info("=== 直接LLM问答完成 ===");
             }
 
             response.setAnswer(answer);
@@ -159,12 +185,16 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     private String callLLM(String prompt) {
         try {
+            log.info("正在调用LLM,模型: {}", chatModel.getClass().getSimpleName());
             UserMessage userMessage = new UserMessage(prompt);
             ChatResponse chatResponse = chatModel.call(new Prompt(userMessage));
-            
+
             if (chatResponse != null && chatResponse.getResult() != null) {
-                return chatResponse.getResult().getOutput().getContent();
+                String content = chatResponse.getResult().getOutput().getContent();
+                log.info("LLM成功返回结果");
+                return content;
             }
+            log.warn("LLM返回结果为空");
             return "抱歉,无法生成答案。";
         } catch (Exception e) {
             log.error("调用LLM失败", e);
