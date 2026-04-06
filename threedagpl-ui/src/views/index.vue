@@ -291,24 +291,23 @@ export default {
 
         const obj = new OBJLoader().parse(ev.target.result)
 
-        if (this.objMesh) {
-          this.scene.remove(this.objMesh)
+        if (this.objMeshLeft) {
+          this.sceneLeft.remove(this.objMeshLeft)
         }
+
+        // 统计唯一顶点数（从OBJ文本直接解析，与MeshLab一致）
+        // 使用正则表达式匹配所有 'v ' 开头的行，性能优于split
+        const text = ev.target.result
+        const vertexMatches = text.match(/^v\s+/gm)
+        this.originalCount = vertexMatches ? vertexMatches.length : 0
 
         obj.traverse(c => {
           if (c.isMesh) {
             c.material = new THREE.MeshStandardMaterial({
               color: 0x44aaee
             })
-
-            this.originalCount = c.geometry.attributes.position.count
-            this.vertexCount = this.originalCount
           }
         })
-
-        if (this.objMeshLeft) {
-          this.sceneLeft.remove(this.objMeshLeft)
-        }
 
         this.objMeshLeft = obj
         this.sceneLeft.add(obj)
