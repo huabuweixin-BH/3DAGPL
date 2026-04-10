@@ -201,11 +201,30 @@ export default {
 
           obj.traverse(c => {
             if (c.isMesh) {
-              c.material = new THREE.MeshStandardMaterial({
+              // 创建双面材质：实体 + 网格线框
+              const solidMaterial = new THREE.MeshStandardMaterial({
                 color: 0x44aaee,
-                roughness: 0.7,
-                metalness: 0.2
+                roughness: 0.5,
+                metalness: 0.3,
+                side: THREE.DoubleSide,
+                flatShading: false
               })
+              
+              // 创建线框网格模型
+              const wireframe = new THREE.LineSegments(
+                new THREE.EdgesGeometry(c.geometry),
+                new THREE.LineBasicMaterial({ 
+                  color: 0x00ffff,
+                  transparent: true,
+                  opacity: 0.4
+                })
+              )
+
+              // 应用实体材质
+              c.material = solidMaterial
+              
+              // 添加线框作为子对象
+              c.add(wireframe)
             }
           })
 
@@ -240,7 +259,8 @@ export default {
       const container = this.$refs[side + 'Container']
 
       const scene = new THREE.Scene()
-      scene.background = new THREE.Color(0x1a1a1a)
+      // 使用渐变感更好的深色背景
+      scene.background = new THREE.Color(0x0a0a1a)
 
       const camera = new THREE.PerspectiveCamera(
         45,
@@ -248,24 +268,69 @@ export default {
         0.1,
         1000
       )
+      camera.position.set(3, 3, 6)
 
-      camera.position.set(2, 2, 5)
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true })
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: false
+      })
       renderer.setSize(container.clientWidth, container.clientHeight)
+      renderer.setPixelRatio(window.devicePixelRatio)
+      renderer.shadowMap.enabled = true
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.2
 
       container.appendChild(renderer.domElement)
 
-      const light = new THREE.DirectionalLight(0xffffff, 1)
-      light.position.set(5, 5, 5)
+      // ================= 增强光照系统 =================
+      
+      // 1. 主方向光（模拟太阳光）
+      const mainLight = new THREE.DirectionalLight(0xffffff, 1.5)
+      mainLight.position.set(5, 8, 5)
+      mainLight.castShadow = true
+      mainLight.shadow.mapSize.width = 2048
+      mainLight.shadow.mapSize.height = 2048
+      scene.add(mainLight)
 
-      scene.add(light)
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6))
+      // 2. 补光（柔和的蓝色调）
+      const fillLight = new THREE.DirectionalLight(0x88aaff, 0.6)
+      fillLight.position.set(-5, 3, -3)
+      scene.add(fillLight)
 
-      new OrbitControls(camera, renderer.domElement)
+      // 3. 背光（边缘光效果）
+      const backLight = new THREE.DirectionalLight(0xffa500, 0.4)
+      backLight.position.set(0, 2, -8)
+      scene.add(backLight)
 
+      // 4. 半球光（天空和地面的自然过渡）
+      const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x362d59, 0.5)
+      scene.add(hemiLight)
+
+      // 5. 环境光（基础照明）
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4)
+      scene.add(ambientLight)
+
+      // 6. 点光源（增加局部高光）
+      const pointLight = new THREE.PointLight(0x00ffff, 0.5, 20)
+      pointLight.position.set(0, 5, 0)
+      scene.add(pointLight)
+
+      // ================= 添加网格辅助地面 =================
+      const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222)
+      scene.add(gridHelper)
+
+      // 轨道控制器
+      const controls = new OrbitControls(camera, renderer.domElement)
+      controls.enableDamping = true
+      controls.dampingFactor = 0.05
+      controls.minDistance = 2
+      controls.maxDistance = 50
+
+      // 渲染循环
       const loop = () => {
         requestAnimationFrame(loop)
+        controls.update()
         renderer.render(scene, camera)
       }
 
@@ -303,9 +368,36 @@ export default {
 
         obj.traverse(c => {
           if (c.isMesh) {
-            c.material = new THREE.MeshStandardMaterial({
-              color: 0x44aaee
+            // 创建双面材质：实体 + 网格线框
+            const solidMaterial = new THREE.MeshStandardMaterial({
+              color: 0x44aaee,
+              roughness: 0.5,
+              metalness: 0.3,
+              side: THREE.DoubleSide,
+              flatShading: false
             })
+            
+            // 创建线框材质
+            const wireframeMaterial = new THREE.MeshBasicMaterial({
+              color: 0x00ffff,
+              wireframe: false
+            })
+
+            // 创建线框网格模型
+            const wireframe = new THREE.LineSegments(
+              new THREE.EdgesGeometry(c.geometry),
+              new THREE.LineBasicMaterial({ 
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.4
+              })
+            )
+
+            // 应用实体材质
+            c.material = solidMaterial
+            
+            // 添加线框作为子对象
+            c.add(wireframe)
           }
         })
 
@@ -331,22 +423,29 @@ export default {
 .three-scenes {
   display: flex;
   gap: 20px;
+  min-height: 600px;
 }
 
 .scene-container {
   flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .scene-container h3 {
   text-align: center;
   margin-bottom: 10px;
   color: #409EFF;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(64, 158, 255, 0.3);
 }
 
 .canvas-container {
   width: 100%;
-  height: calc(100vh - 280px);
-  border-radius: 6px;
+  flex: 1;
+  min-height: 550px;
+  border-radius: 8px;
   background: #000;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 </style>
